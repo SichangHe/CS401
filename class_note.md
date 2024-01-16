@@ -18,3 +18,26 @@ network topology
 - fat tree. problem: require insane link capacity on top
     - link aggregation: bond multiple link together
 - leaf-spine topology (clos): layered multiple spine connected to multiple rack
+
+Internet redundancy: multiple ISP
+
+data storage
+
+- classical approach: server with own HDD, data replication
+- modern approach: separate compute/ storage unit, SSD, less data replication
+
+Hadoop
+
+- automatic MapReduce management
+- HDFS: Hadoop distributed file system
+    - assume each server has own storage
+    - append-only, 128MB block
+    - NameNode index, DataNode store
+    - try to compute with local data
+
+Spark
+
+- multi-paradigm, high-performance
+- building block: resilient distributed dataset (RDD)
+    - general, lazy, ephemeral, lineage, shareable
+    - aggressive caching with LRU
