@@ -41,3 +41,13 @@ Spark
 - building block: resilient distributed dataset (RDD)
     - general, lazy, ephemeral, lineage, shareable
     - aggressive caching with LRU
+
+paravirtualization: modify guest OS to not use kernel space
+
+- high performance
+- hard to modify OS
+
+full virtualization
+
+- native performance
+- need hardware support (e.g. ring -1 for hypervisor)
