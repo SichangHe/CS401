@@ -1,0 +1,107 @@
+## 1. Statistics about songs duration
+Minimum, average, and maximum song duration, in milliseconds, of the songs in the dataset:
++---------------+------------------+---------------+
+|min_duration_ms|   avg_duration_ms|max_duration_ms|
++---------------+------------------+---------------+
+|              0|234408.54976216817|       10435467|
++---------------+------------------+---------------+
+
+First and third quartiles, and interquartile range (IRQ):
++--------------+--------------+----------------------------+
+|first_quartile|third_quartile|interquartile_range_duration|
++--------------+--------------+----------------------------+
+|      198333.0|      258834.0|                     60501.0|
++--------------+--------------+----------------------------+
+
+Set of songs with durations that are not outliers:
++--------------------+--------------------+--------------------+--------------------+-----------+------+---+--------------------+--------------------+
+|          album_name|           album_uri|         artist_name|          artist_uri|duration_ms|   pid|pos|          track_name|           track_uri|
++--------------------+--------------------+--------------------+--------------------+-----------+------+---+--------------------+--------------------+
+|Le monde de la ch...|spotify:album:3Yp...|          Édith Piaf|spotify:artist:1W...|     107582| 85322| 10|     La vie, l'amour|spotify:track:1Jn...|
+|Night of Gold (Of...|spotify:album:78t...|                 WWE|spotify:artist:0s...|     107586|108686| 13|Night of Gold (Of...|spotify:track:3A7...|
+|Condemned (Origin...|spotify:album:74u...|       Daniel Davies|spotify:artist:0Y...|     107586|114496| 26|       Maya's Escape|spotify:track:5Td...|
+|        Pyramid Lake|spotify:album:2pd...|        Common Souls|spotify:artist:76...|     107586|153670| 31|               Cocoa|spotify:track:3Wb...|
+|Schubert: Winterr...|spotify:album:4HR...|      Franz Schubert|spotify:artist:2p...|     107586| 37884| 35|Winterreise D.911...|spotify:track:5T4...|
+|        Pyramid Lake|spotify:album:2pd...|        Common Souls|spotify:artist:76...|     107586|  5838| 15|               Cocoa|spotify:track:3Wb...|
+|         Love Police|spotify:album:5pZ...|Charlie Megira & ...|spotify:artist:6B...|     107596| 51227| 19|          Sababa One|spotify:track:2GC...|
+|Miranda Sings Chr...|spotify:album:2yN...|       Miranda Sings|spotify:artist:5q...|     107599|130347| 69|Here Comes Santa ...|spotify:track:37b...|
+|Miranda Sings Chr...|spotify:album:2yN...|       Miranda Sings|spotify:artist:5q...|     107599|130788| 18|Here Comes Santa ...|spotify:track:37b...|
+|Chopin: Etudes/Ba...|spotify:album:0uM...|     Frédéric Chopin|spotify:artist:7y...|     107600|100479|  6|Waltzes (1989 Dig...|spotify:track:2sB...|
+|The Sing-Off: Sea...|spotify:album:7GM...| The Dartmouth Aires|spotify:artist:71...|     107600|138034| 61|We're Not Gonna T...|spotify:track:1oI...|
+|Ta Nisiotika Ton ...|spotify:album:5CZ...|   To Konitopouleiko|spotify:artist:3n...|     107600|141639| 61|Xekinaei Mia Psar...|spotify:track:5ky...|
+|        Stratosphere|spotify:album:6QL...|              Duster|spotify:artist:5A...|     107600|154644|  5|             Sideria|spotify:track:6zz...|
+|Tokyo Ghoul Colle...|spotify:album:7wY...|              Jajnov|spotify:artist:13...|     107600|156898|107|Seijatachi (Instr...|spotify:track:2IQ...|
+|The Statler Broth...|spotify:album:3rz...|The Statler Brothers|spotify:artist:5P...|     107600| 44974|181|Whatever Happened...|spotify:track:2aN...|
+|         Polish Club|spotify:album:6W7...|         Polish Club|spotify:artist:2t...|     107600|  5986| 28|          Only Child|spotify:track:0UA...|
+|     How to Be Human|spotify:album:6J9...|   The Classic Crime|spotify:artist:4Y...|     107600| 63286| 59|      Hold on Let Go|spotify:track:0Db...|
+|           Trock On!|spotify:album:63Y...|        Bad Wolf Bay|spotify:artist:05...|     107600| 69873|125|         Miss Martha|spotify:track:5Xv...|
+|Too Punk for the ...|spotify:album:1op...|          The Attack|spotify:artist:2x...|     107600|  9199|103|      Time for Livin|spotify:track:5fw...|
+|        Inhumanistic|spotify:album:6Kk...|        Mind Spiders|spotify:artist:2g...|     107613|152731|  0|            Pictures|spotify:track:0XC...|
++--------------------+--------------------+--------------------+--------------------+-----------+------+---+--------------------+--------------------+
+only showing top 20 rows
+
+559989 songs would be considered outliers and removed from analysis.
+Minimum, average, and maximum song duration, in milliseconds, of the songs of the remaining songs:
++---------------+------------------+---------------+
+|min_duration_ms|   avg_duration_ms|max_duration_ms|
++---------------+------------------+---------------+
+|         107582|226899.35353939075|         349583|
++---------------+------------------+---------------+
+
+## 2. Finding the most popular artists over time
+Five most popular artists ranked by the number of playlists they appear in:
++--------------+--------------------+-----+
+|   artist_name|          artist_uri|count|
++--------------+--------------------+-----+
+|         Drake|spotify:artist:3T...|32258|
+|       Rihanna|spotify:artist:5p...|23963|
+|    Kanye West|spotify:artist:5K...|22464|
+|    The Weeknd|spotify:artist:1X...|20046|
+|Kendrick Lamar|spotify:artist:2Y...|19159|
++--------------+--------------------+-----+
+
+Number of playlists containing each of the top five artists over the years:
++----+-----------+-----------+-----------+-----------+-----------+
+|year|n_playlist0|n_playlist1|n_playlist2|n_playlist3|n_playlist4|
++----+-----------+-----------+-----------+-----------+-----------+
+|2011|          0|          1|          4|          0|          0|
+|2012|         24|         32|         29|          2|          5|
+|2013|        551|        540|        494|        101|        284|
+|2014|       1429|       1337|       1316|        313|        794|
+|2015|       3963|       3396|       3205|       2572|       2101|
+|2016|      11823|       9416|       8342|       7017|       4802|
+|2017|      32258|      23963|      22464|      20046|      19159|
++----+-----------+-----------+-----------+-----------+-----------+
+
+(Plot saved at `artists_over_time.pdf`.)
+
+## 3. Playlists’s behavior
+The prevalence of the most frequent artist in each playlist:
++------+------------------+
+|   pid|        prevalence|
++------+------------------+
+|125770|0.9916317991631799|
+|159272|0.9912280701754386|
+|166341|0.9894736842105263|
+| 49938|0.9891304347826086|
+|130066|0.9887005649717514|
+| 16951|0.9885714285714285|
+|166642|0.9880239520958084|
+| 98776|0.9878048780487805|
+|168631|            0.9875|
+|  6104|0.9874213836477987|
+| 37549|0.9873417721518988|
+|113674|0.9873417721518988|
+| 71301|0.9863013698630136|
+|141341|0.9863013698630136|
+|159959|0.9862068965517241|
+| 42282| 0.986013986013986|
+| 45992| 0.986013986013986|
+|131802|0.9857142857142858|
+| 26047|0.9857142857142858|
+|132095|0.9856115107913669|
++------+------------------+
+only showing top 20 rows
+
+(CDF plot saved at `cdf_prevalence_over_playlist.pdf`.)
+
