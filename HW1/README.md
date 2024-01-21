@@ -3,7 +3,7 @@
 ## Dataset Description
 
 The dataset used is in HDFS at `hdfs://localhost:9000/datasets/spotify/`.
-`playlists.json` containing playlist metadata while `tracks.json`
+`playlist.json` (without "s") containing playlist metadata while `tracks.json`
 containing information about songs present in the playlists.
 
 ## Tasks
@@ -15,56 +15,96 @@ Interquartile Range Rule
 a technique that removes points outside an interval defined by the 1st
 and 3rd quartiles.
 
-- [ ] Generate a table containing
-    - [ ] the minimum
-    - [ ] average and
-    - [ ] maximum duration, in milliseconds, of the songs in the dataset.
-- [ ] Compute
-    - [ ] the first and
-    - [ ] third quartiles ($Q_1$ and $Q_3$),
-    - [ ] as well as the [interquartile range
-    (IRQ)](https://en.wikipedia.org/wiki/Interquartile_range) ($Q_3-Q_1$).
-- [ ] Compute the set of songs with durations that are not outliers—with
-    duration $x$ such that $Q_1-1.5IQR < x < Q_3+1.5IQR$.
-- [ ] Using the IQRR methodology, how many songs would be considered
-    outliers and removed from analysis?
-    - [ ] Generate a new table containing
-        - [ ] the minimum
-        - [ ] average and
-        - [ ] maximum duration of the remaining songs.
+All parts in this tasks are solved using simple SQL queries.
+The only exception to using pure SQL is calculating the bounds of
+the IQRR interval.
+Since we already know $Q1$ and $Q3$ at that point,
+I just retrieve them from the previous data frame and use
+the calculated interval to construct the SQL query.
+
+(1) Minimum, average, and maximum song duration, in milliseconds, of the songs in the dataset:
+
+|min_duration_ms|   avg_duration_ms|max_duration_ms|
+|---------------|------------------|---------------|
+|              0|234408.54976216817|       10435467|
+
+(2) First and third quartiles, and interquartile range (IRQ):
+
+|first_quartile|third_quartile|interquartile_range_duration|
+|--------------|--------------|----------------------------|
+|      198333.0|      258834.0|                     60501.0|
+
+(3) Using the IQRR methodology,
+559989 songs would be considered outliers and removed from analysis.
+
+(4) Minimum, average, and maximum song duration, in milliseconds, of the songs of the remaining songs:
+
+|min_duration_ms|   avg_duration_ms|max_duration_ms|
+|---------------|------------------|---------------|
+|         107582|226899.35353939075|         349583|
+
+The 559989 songs are only 5.20% among all the songs,
+but removing them reduced the average song duration by 3.20%.
+This shows that some extremely long songs caused significant bias in the average
+towards the larger direction.
+
+The minimum and maximum song duration after removing the outliers are
+just at the boundaries of the IQRR interval $(107581.5, 349585.5)$.
+This suggests that duration values in the dataset may vary a lot such that
+they occupy most of the IQRR interval.
 
 ### 2. Finding the most popular artists over time
 
-- [ ] find the five most popular artists ranked by the number of
-    playlists they appear in.
-- [ ] Create a chart that shows the number of
-    playlists containing each of these five artists over the years. Consider
-    that an artist is present in a playlist after each playlist's last
-    modification date.
+Five most popular artists ranked by the number of playlists they appear in:
+
+|   artist_name|          artist_uri|count|
+|--------------|--------------------|-----|
+|         Drake|spotify:artist:3T...|32258|
+|       Rihanna|spotify:artist:5p...|23963|
+|    Kanye West|spotify:artist:5K...|22464|
+|    The Weeknd|spotify:artist:1X...|20046|
+|Kendrick Lamar|spotify:artist:2Y...|19159|
+
+Number of playlists containing each of the top five artists over the years:
+
+![Number of Playlists Containing The Five Most Popular Artists Over The Years.](artists_over_time.pdf)
+
+While finding the most popular artists is another straightforward SQL query,
+getting their appearance over the years indicate that the resulting data frame
+needs to have a column for each popular artist.
+To achieve this, I manipulated `artist_uri` strings to generate an SQL query
+agnostic of the list of popular artists chosen.
+Additionally, I only include the years where any of these artist appeared in
+at least one playlist.
+These results are then converted to `pandas.DataFrame` to construct the plot in
+`matplotlib`.
+
+All five popular artists grew exponentially in terms of the number of
+playlists they appear in over the years,
+in similar fashions.
+This indicates that artists' popularity grow in a rather constant rate
+each year compared to the last year.
 
 ### 3. Playlists's behavior
 
-What is more common: Playlists where
-there are many songs by the same artist or playlists with more diverse
-songs?
+![CDF of Artists Prevalences Across All Playlists.](cdf_prevalence_over_playlist.pdf)
 
-- [ ] compute the *prevalence* of the most
-    frequent artist in each playlist, defined as the fraction of songs by
-    the most frequent artist.
-- [ ] Then create a [Cumulative Distribution
-    Function](https://en.wikipedia.org/wiki/Cumulative_distribution_function)
-    (CDF) plot containing the distribution of artist prevalence across all
-    playlists.
+This yet another SQL query that first calculates the track counts for
+each playlist and artist,
+then use this information to find the track counts of the prevalent artists
+and all the artists combined.
+This is built on the assumption that each track has exactly one artist,
+which seems to be the case in this schema.
+Also, duplicated `track_uri`s are ignored; surprisingly, they exist.
 
-### What to Submit
+Playlists with diverse songs from various artists are more common.
+As the CDF shows, almost 80% of playlists have a prevalence of 20% or less,
+and playlists with over 80% prevalence are less than 3%.
+This indicates that playlists usually have songs from various artists,
+without having any of the artists dominating the playlist.
 
-- [ ] All code you developed in this project. Organize the code of each
-    task so they are easy to identify.
-- [ ] A PDF file explaining your solution and findings. Describe the
-    approach you took to tackle each task, discuss the results you
-    obtained, and report any post-processing (e.g., filtering) you
-    applied to the data. Your documentation should include at least in
-    addition to the discussion:
-    - [ ] Two tables and a paragraph discussing the results for Task 1.
-    - [ ] One graph and a paragraph discussing the results for Task 2.
-    - [ ] One graph and a paragraph discussing the results for Task 3.
+### Notes
+
+Attached `main.py` is the main script that runs all the tasks;
+it invoked by `run.sh`.
+An sample output `.txt` file is also attached for reference purposes.

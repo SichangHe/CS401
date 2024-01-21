@@ -138,12 +138,13 @@ def ecdf(
 
 spark = SparkSession.builder.appName("Songs").getOrCreate()
 with spark_context(spark) as sc:
-    sc.setLogLevel('WARN')
+    sc.setLogLevel("WARN")
     playlist_df = spark.read.json("/datasets/spotify/playlist.json")
     playlist_df.createOrReplaceTempView("playlist")
     track_df = spark.read.json("/datasets/spotify/tracks.json")
     track_df.createOrReplaceTempView("track")
 
+    ############################################################################
     print("## 1. Statistics about songs duration")
 
     duration_stats = spark.sql(
@@ -200,6 +201,7 @@ from none_outlier"""
     )
     none_outlier_stats.show()
 
+    ############################################################################
     print("## 2. Finding the most popular artists over time")
 
     popular_artists = spark.sql(
@@ -255,6 +257,7 @@ order by year asc"""
     fig.savefig("artists_over_time.pdf", bbox_inches="tight")
     print("(Plot saved at `artists_over_time.pdf`.)\n")
 
+    ############################################################################
     print("## 3. Playlists’s behavior")
 
     prevalences = spark.sql(
@@ -274,7 +277,7 @@ order by (max(n_track) / sum(n_track)) desc"""
     prevalences_df = prevalences.toPandas()
     fig, ax = plt.subplots(figsize=(8, 6))  # type: ignore
     ax.set_xlabel("Prevalences of The Most Frequent\nArtist in Each Playlist")
-    ax.set_ylabel("Cumulative Fraction of\nPrevalences")
+    ax.set_ylabel("Cumulative Fraction of\nPlaylists")
     ecdf(ax, prevalences_df["prevalence"], label="CDF")
     ax.grid()
     ax.legend()
