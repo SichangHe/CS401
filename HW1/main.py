@@ -6,10 +6,165 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 plt.rcParams["font.size"] = 24
 plt.rcParams["lines.linewidth"] = 4
+
+
+def main():
+    spark = SparkSession.builder.appName("Songs").getOrCreate()
+    with spark_context(spark) as sc:
+        sc.setLogLevel("WARN")
+        playlist_df = spark.read.json("/datasets/spotify/playlist.json")
+        playlist_df.createOrReplaceTempView("playlist")
+        track_df = spark.read.json("/datasets/spotify/tracks.json")
+        track_df.createOrReplaceTempView("track")
+        song_duration_stats(spark, track_df)
+        popular_artists(spark)
+
+
+def song_duration_stats(spark: SparkSession, track_df: DataFrame):
+    print("## 1. Statistics about songs duration")
+
+    duration_stats = spark.sql(
+        """
+select min(duration_ms) as min_duration_ms,
+    avg(duration_ms) as avg_duration_ms,
+    max(duration_ms) as max_duration_ms
+from track"""
+    )
+    print(
+        "Minimum, average, and maximum song duration, in milliseconds, of the songs in the dataset:"
+    )
+    duration_stats.show()
+
+    duration_tiles = spark.sql(
+        """
+with tiles as (
+    select percentile(duration_ms, 0.25) as first_quartile,
+        percentile(duration_ms, 0.75) as third_quartile
+    from track
+) select first_quartile, third_quartile,
+    (third_quartile - first_quartile) as interquartile_range_duration
+from tiles"""
+    ).localCheckpoint()
+    print("First and third quartiles, and interquartile range (IRQ):")
+    duration_tiles.show()
+    first_quartile, third_quartile, interquartile_range_duration = duration_tiles.take(
+        1
+    )[0]
+
+    none_outliers = spark.sql(
+        f"""
+select * from track
+where duration_ms > {first_quartile - 1.5*interquartile_range_duration}
+and duration_ms < {third_quartile + 1.5*interquartile_range_duration}
+order by duration_ms"""
+    ).localCheckpoint()
+    print("Set of songs with durations that are not outliers:")
+    none_outliers.show()
+
+    n_outliers = track_df.count() - none_outliers.count()
+    print(f"{n_outliers} songs would be considered outliers and removed from analysis.")
+
+    none_outliers.createOrReplaceTempView("none_outlier")
+    none_outlier_stats = spark.sql(
+        """
+select min(duration_ms) as min_duration_ms,
+    avg(duration_ms) as avg_duration_ms,
+    max(duration_ms) as max_duration_ms
+from none_outlier"""
+    )
+    print(
+        "Minimum, average, and maximum song duration, in milliseconds, of the songs of the remaining songs:"
+    )
+    none_outlier_stats.show()
+
+
+def popular_artists(spark: SparkSession):
+    print("## 2. Finding the most popular artists over time")
+
+    popular_artists = spark.sql(
+        """
+select artist_name, artist_uri, count(distinct pid) as count
+from playlist join track using (pid)
+group by artist_name, artist_uri
+order by count(distinct pid) desc
+limit 5"""
+    ).localCheckpoint()
+    print("Five most popular artists ranked by the number of playlists they appear in:")
+    popular_artists.show()
+
+    artist_names, artist_uris, counts = list(zip(*popular_artists.take(5)))
+    artists_over_time = spark.sql(
+        f"""
+with playlist_w_track_w_time as (
+    select *, year(from_unixtime(modified_at)) as modified_year
+    from playlist join track using (pid)
+    where artist_uri in ({
+        ",".join([f"'{artist_uri}'" for artist_uri in artist_uris])
+    })
+), timeline as (
+    select distinct modified_year as year
+    from playlist_w_track_w_time
+) select year,
+{
+    ",".join([
+        f"count(distinct case when artist_uri = '{uri}' then pid end) as n_playlist{index}"
+        for index, uri in enumerate(artist_uris)
+    ])
+}
+from playlist_w_track_w_time, timeline
+where modified_year <= year
+group by year
+order by year asc"""
+    ).localCheckpoint()
+    print("Number of playlists containing each of the top five artists over the years:")
+    artists_over_time.show()
+
+    artists_over_time_df = artists_over_time.toPandas()
+    years = artists_over_time_df["year"]
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots(figsize=(8, 6))  # type: ignore
+    ax.set_xlabel("Year")
+    ax.set_ylabel("#Playlists Containing Artist")
+    ax.set_yscale("log")  # type: ignore
+    for index, artist_name in enumerate(artist_names):
+        ax.plot(years, artists_over_time_df[f"n_playlist{index}"], label=artist_name)
+    ax.grid()
+    ax.legend()
+    fig.savefig("artists_over_time.pdf", bbox_inches="tight")
+    print("(Plot saved at `artists_over_time.pdf`.)\n")
+
+
+def playlist_behavior(spark: SparkSession):
+    print("## 3. Playlists’s behavior")
+
+    prevalences = spark.sql(
+        """
+with artist_track_count as (
+    select pid, artist_uri, count(distinct track_uri) as n_track
+    from playlist join track using (pid)
+    group by pid, artist_uri
+) select pid, (max(n_track) / sum(n_track)) as prevalence
+from artist_track_count
+group by pid
+order by (max(n_track) / sum(n_track)) desc"""
+    ).localCheckpoint()
+    print("The prevalence of the most frequent artist in each playlist:")
+    prevalences.show()
+
+    prevalences_df = prevalences.toPandas()
+    fig, ax = plt.subplots(figsize=(8, 6))  # type: ignore
+    ax.set_xlabel("Prevalences of The Most Frequent\nArtist in Each Playlist")
+    ax.set_ylabel("Cumulative Fraction of\nPlaylists")
+    ecdf(ax, prevalences_df["prevalence"], label="CDF")
+    ax.grid()
+    ax.legend()
+    fig.savefig("cdf_prevalence_over_playlist.pdf", bbox_inches="tight")
+    print("(CDF plot saved at `cdf_prevalence_over_playlist.pdf`.)\n")
 
 
 @contextmanager
@@ -136,150 +291,4 @@ def ecdf(
     return line
 
 
-spark = SparkSession.builder.appName("Songs").getOrCreate()
-with spark_context(spark) as sc:
-    sc.setLogLevel("WARN")
-    playlist_df = spark.read.json("/datasets/spotify/playlist.json")
-    playlist_df.createOrReplaceTempView("playlist")
-    track_df = spark.read.json("/datasets/spotify/tracks.json")
-    track_df.createOrReplaceTempView("track")
-
-    ############################################################################
-    print("## 1. Statistics about songs duration")
-
-    duration_stats = spark.sql(
-        """
-select min(duration_ms) as min_duration_ms,
-    avg(duration_ms) as avg_duration_ms,
-    max(duration_ms) as max_duration_ms
-from track"""
-    )
-    print(
-        "Minimum, average, and maximum song duration, in milliseconds, of the songs in the dataset:"
-    )
-    duration_stats.show()
-
-    duration_tiles = spark.sql(
-        """
-with tiles as (
-    select percentile(duration_ms, 0.25) as first_quartile,
-        percentile(duration_ms, 0.75) as third_quartile
-    from track
-) select first_quartile, third_quartile,
-    (third_quartile - first_quartile) as interquartile_range_duration
-from tiles"""
-    ).localCheckpoint()
-    print("First and third quartiles, and interquartile range (IRQ):")
-    duration_tiles.show()
-    first_quartile, third_quartile, interquartile_range_duration = duration_tiles.take(
-        1
-    )[0]
-
-    none_outliers = spark.sql(
-        f"""
-select * from track
-where duration_ms > {first_quartile - 1.5*interquartile_range_duration}
-and duration_ms < {third_quartile + 1.5*interquartile_range_duration}
-order by duration_ms"""
-    ).localCheckpoint()
-    print("Set of songs with durations that are not outliers:")
-    none_outliers.show()
-
-    n_outliers = track_df.count() - none_outliers.count()
-    print(f"{n_outliers} songs would be considered outliers and removed from analysis.")
-
-    none_outliers.createOrReplaceTempView("none_outlier")
-    none_outlier_stats = spark.sql(
-        """
-select min(duration_ms) as min_duration_ms,
-    avg(duration_ms) as avg_duration_ms,
-    max(duration_ms) as max_duration_ms
-from none_outlier"""
-    )
-    print(
-        "Minimum, average, and maximum song duration, in milliseconds, of the songs of the remaining songs:"
-    )
-    none_outlier_stats.show()
-
-    ############################################################################
-    print("## 2. Finding the most popular artists over time")
-
-    popular_artists = spark.sql(
-        """
-select artist_name, artist_uri, count(distinct pid) as count
-from playlist join track using (pid)
-group by artist_name, artist_uri
-order by count(distinct pid) desc
-limit 5"""
-    ).localCheckpoint()
-    print("Five most popular artists ranked by the number of playlists they appear in:")
-    popular_artists.show()
-
-    artist_names, artist_uris, counts = list(zip(*popular_artists.take(5)))
-    artists_over_time = spark.sql(
-        f"""
-with playlist_w_track_w_time as (
-    select *, year(from_unixtime(modified_at)) as modified_year
-    from playlist join track using (pid)
-    where artist_uri in ({
-        ",".join([f"'{artist_uri}'" for artist_uri in artist_uris])
-    })
-), timeline as (
-    select distinct modified_year as year
-    from playlist_w_track_w_time
-) select year,
-{
-    ",".join([
-        f"count(distinct case when artist_uri = '{uri}' then pid end) as n_playlist{index}"
-        for index, uri in enumerate(artist_uris)
-    ])
-}
-from playlist_w_track_w_time, timeline
-where modified_year <= year
-group by year
-order by year asc"""
-    ).localCheckpoint()
-    print("Number of playlists containing each of the top five artists over the years:")
-    artists_over_time.show()
-
-    artists_over_time_df = artists_over_time.toPandas()
-    years = artists_over_time_df["year"]
-    fig: Figure
-    ax: Axes
-    fig, ax = plt.subplots(figsize=(8, 6))  # type: ignore
-    ax.set_xlabel("Year")
-    ax.set_ylabel("#Playlists Containing Artist")
-    ax.set_yscale("log")  # type: ignore
-    for index, artist_name in enumerate(artist_names):
-        ax.plot(years, artists_over_time_df[f"n_playlist{index}"], label=artist_name)
-    ax.grid()
-    ax.legend()
-    fig.savefig("artists_over_time.pdf", bbox_inches="tight")
-    print("(Plot saved at `artists_over_time.pdf`.)\n")
-
-    ############################################################################
-    print("## 3. Playlists’s behavior")
-
-    prevalences = spark.sql(
-        """
-with artist_track_count as (
-    select pid, artist_uri, count(distinct track_uri) as n_track
-    from playlist join track using (pid)
-    group by pid, artist_uri
-) select pid, (max(n_track) / sum(n_track)) as prevalence
-from artist_track_count
-group by pid
-order by (max(n_track) / sum(n_track)) desc"""
-    ).localCheckpoint()
-    print("The prevalence of the most frequent artist in each playlist:")
-    prevalences.show()
-
-    prevalences_df = prevalences.toPandas()
-    fig, ax = plt.subplots(figsize=(8, 6))  # type: ignore
-    ax.set_xlabel("Prevalences of The Most Frequent\nArtist in Each Playlist")
-    ax.set_ylabel("Cumulative Fraction of\nPlaylists")
-    ecdf(ax, prevalences_df["prevalence"], label="CDF")
-    ax.grid()
-    ax.legend()
-    fig.savefig("cdf_prevalence_over_playlist.pdf", bbox_inches="tight")
-    print("(CDF plot saved at `cdf_prevalence_over_playlist.pdf`.)\n")
+main() if __name__ == "__main__" else None
