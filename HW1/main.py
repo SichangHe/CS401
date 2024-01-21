@@ -138,6 +138,7 @@ def ecdf(
 
 spark = SparkSession.builder.appName("Songs").getOrCreate()
 with spark_context(spark) as sc:
+    sc.setLogLevel('WARN')
     playlist_df = spark.read.json("/datasets/spotify/playlist.json")
     playlist_df.createOrReplaceTempView("playlist")
     track_df = spark.read.json("/datasets/spotify/tracks.json")
