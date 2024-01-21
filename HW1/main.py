@@ -157,6 +157,8 @@ order by (max(n_track) / sum(n_track)) desc"""
     prevalences.show()
 
     prevalences_df = prevalences.toPandas()
+    fig: Figure
+    ax: Axes
     fig, ax = plt.subplots(figsize=(8, 6))  # type: ignore
     ax.set_xlabel("Prevalences of The Most Frequent\nArtist in Each Playlist")
     ax.set_ylabel("Cumulative Fraction of\nPlaylists")
