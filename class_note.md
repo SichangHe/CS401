@@ -56,3 +56,9 @@ container
 
 - isolate: network namespace, file system, process information, user
 - Linux containers (LXC): more full system than Docker
+
+automation level: deployment & configuration, → monitoring & measurement,
+→ trends & prediction, → root cause analysis, → troubleshooting
+
+- vendor-independent configuration:
+    zero-touch provisioning & infrastructure as code
