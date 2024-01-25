@@ -51,3 +51,8 @@ full virtualization
 
 - native performance
 - need hardware support (e.g. ring -1 for hypervisor)
+
+container
+
+- isolate: network namespace, file system, process information, user
+- Linux containers (LXC): more full system than Docker

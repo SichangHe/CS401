@@ -3,6 +3,7 @@
 **.flutter*
 **.ipynb_checkpoints/
 **.pyc
+**.zip
 **__pycache__/
 **build/
 
