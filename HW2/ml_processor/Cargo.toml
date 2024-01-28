@@ -1,0 +1,11 @@
+[package]
+name = "ml_processor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+apriori = { git = "https://github.com/SichangHe/remykarem--apriori" }
+bincode = "1.3"

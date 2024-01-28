@@ -85,6 +85,8 @@ Pass in the pointer to the dataset to the ML container.
 
 Change pod name on update, or other methods.
 
+Other method: use jobs and set time-to-live after finish so they self-destruct.
+
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
 Test that ArgoCD redeploys when we update
