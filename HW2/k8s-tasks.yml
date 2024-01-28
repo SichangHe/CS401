@@ -1,3 +1,16 @@
+# <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-data-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+---
 # <https://kubernetes.io/docs/concepts/workloads/controllers/job/>
 apiVersion: batch/v1
 kind: Job
@@ -11,6 +24,14 @@ spec:
         image: hello-world:latest # TODO: Replace with ML container.
         # TODO: Mount shared volume.
       restartPolicy: OnFailure
+      # <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes>
+      volumeMounts:
+      - mountPath: "/ml-data"
+        name: ml-data-mnt
+  volumes:
+    - name: ml-data-mnt
+      persistentVolumeClaim:
+        claimName: ml-data-pvc
 ---
 # <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#writing-a-deployment-spec>
 apiVersion: apps/v1
