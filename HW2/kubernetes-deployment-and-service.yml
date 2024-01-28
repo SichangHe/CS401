@@ -1,39 +1,49 @@
+# <https://kubernetes.io/docs/concepts/workloads/controllers/job/>
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cs401-sh623-hw2-ml
+spec:
+  template:
+    spec:
+      containers:
+      - name: cs401-sh623-hw2-ml
+        image: hello-world:latest # TODO: Replace with ML container.
+        # TODO: Mount shared volume.
+      restartPolicy: OnFailure
+---
 # <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#writing-a-deployment-spec>
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cs401-sh623-song-recommender-deployment
+  name: cs401-sh623-hw2-deployment
   labels:
-    app: cs401-sh623-song-recommender
+    app: cs401-sh623-hw2
 spec:
   replicas: 3
   selector: # *
     matchLabels:
-      app: cs401-sh623-song-recommender
+      app: cs401-sh623-hw2
   template: # * <https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates>
     metadata:
       labels:
-        app: cs401-sh623-song-recommender
+        app: cs401-sh623-hw2
     spec:
       containers:
-      - name: cs401-sh623-song-recommender-rest-server
+      - name: cs401-sh623-hw2-rest-server
         image: swaagie/echo-server:latest # TODO: Replace with real server image.
         ports:
-        - name: cs401-sh623-song-recommender-rest-server-port
-          containerPort: 3000
-        # TODO: Mount shared volume.
-      - name: cs401-sh623-song-recommender-ml
-        image: hello-world:latest # TODO: Replace with ML container.
+        - containerPort: 8080
         # TODO: Mount shared volume.
 ---
 # <https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service>
 apiVersion: v1
 kind: Service
 metadata:
-  name: cs401-sh623-song-recommender-service
+  name: cs401-sh623-hw2-service
 spec:
   selector:
-    app: cs401-sh623-song-recommender
+    app: cs401-sh623-hw2
   ports:
-    - name: cs401-sh623-song-recommender-rest-server
-      targetPort: 52004
+    - port: 52004
+      targetPort: 8080
