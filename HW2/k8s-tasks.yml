@@ -4,7 +4,7 @@ kind: Job
 metadata:
   name: cs401-sh623-hw2-ml
 spec:
-  template:
+  template: # <https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates>
     spec:
       containers:
       - name: cs401-sh623-hw2-ml
@@ -21,10 +21,10 @@ metadata:
     app: cs401-sh623-hw2
 spec:
   replicas: 3
-  selector: # *
+  selector:
     matchLabels:
       app: cs401-sh623-hw2
-  template: # * <https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates>
+  template:
     metadata:
       labels:
         app: cs401-sh623-hw2
