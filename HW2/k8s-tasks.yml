@@ -55,7 +55,13 @@ spec:
         image: swaagie/echo-server:latest # TODO: Replace with real server image.
         ports:
         - containerPort: 8080
-        # TODO: Mount shared volume.
+        volumeMounts:
+        - mountPath: "/ml-data"
+          name: ml-data-mnt
+      volumes:
+      - name: ml-data-mnt
+        persistentVolumeClaim:
+          claimName: ml-data-pvc
 ---
 # <https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service>
 apiVersion: v1
