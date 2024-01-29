@@ -62,3 +62,10 @@ automation level: deployment & configuration, → monitoring & measurement,
 
 - vendor-independent configuration:
     zero-touch provisioning & infrastructure as code
+
+orchestration
+
+- building blocks: ephemeral, can be replicated, replaced, composed
+    → update, autoscaling, restore
+- load balancing
+- early error detection during rollout
