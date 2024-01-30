@@ -69,3 +69,8 @@ orchestration
     → update, autoscaling, restore
 - load balancing
 - early error detection during rollout
+
+Kubernetes
+
+- pod: group of container, smallest unit to be managed
+    - init container: run before other
