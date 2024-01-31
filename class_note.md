@@ -74,3 +74,7 @@ Kubernetes
 
 - pod: group of container, smallest unit to be managed
     - init container: run before other
+
+microservice: smaller scope & team, modularity, less complexity,
+    language flexibility, test coverage, rapid deployment, fault isolation;
+    cascading error, functionality & data duplication, attack surface
