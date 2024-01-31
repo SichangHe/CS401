@@ -1,0 +1,42 @@
+<div class="flex flex-col gap-6 p-4">
+    <h1 class="text-2xl font-bold">Song Recommender</h1>
+    <p class="text-gray-500 dark:text-gray-400">
+        Enter a list of songs and get personalized recommendations.
+    </p>
+    <div class="grid gap-4">
+        <div class="space-y-2"><label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="songs">Songs</label>
+            <div class="border border-gray-200 rounded-md p-2 space-y-2">
+                <div class="flex items-center justify-between p-2 bg-gray-100 rounded-md">
+                    <p class="text-gray-500">Song 1</p><button class="text-red-500 hover:text-red-700">Remove</button>
+                </div>
+                <input
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Add a new song...">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2"><label
+                    class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    for="ip-address">IP Address</label><input
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    id="ip-address" placeholder="Enter the IP address of the REST server."></div>
+            <div class="space-y-2"><label
+                    class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    for="port">Port</label><input
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    id="port" placeholder="Enter the port of the REST server."></div>
+        </div><button
+            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">Get
+            Recommendations</button>
+    </div>
+    <div class="border-t pt-4">
+        <h2 class="text-xl font-bold">Recommended Songs</h2>
+        <ul class="list-disc list-inside mt-2 space-y-1">
+            <li class="text-gray-500 dark:text-gray-400">Song 1</li>
+            <li class="text-gray-500 dark:text-gray-400">Song 2</li>
+            <li class="text-gray-500 dark:text-gray-400">Song 3</li>
+        </ul>
+    </div>
+</div>
