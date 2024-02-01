@@ -78,3 +78,5 @@ Kubernetes
 microservice: smaller scope & team, modularity, less complexity,
     language flexibility, test coverage, rapid deployment, fault isolation;
     cascading error, functionality & data duplication, attack surface
+
+service mesh proxy: load balancing, convert conventional communication protocol
