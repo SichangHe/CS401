@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read, path::Path};
 
-use anyhow::Result;
+use anyhow::{Result, Context, anyhow};
 use apriori::Rule;
 use bincode::serialize_into;
 use log::{debug, warn};
@@ -8,6 +8,7 @@ use log::{debug, warn};
 use checkpoint::{check_checkpoint, checkpoint_path, write_checkpoint};
 
 mod checkpoint;
+mod url_file;
 #[cfg(test)]
 mod tests;
 
