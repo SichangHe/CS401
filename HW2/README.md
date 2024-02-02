@@ -24,6 +24,12 @@ Frequent Itemset Mining.
 
 Takes pointer to the dataset from input.
 
+Uses a checkpoint file `ml_processor_checkpoint.txt` to store:
+
+```
+<ML processor version> <dataset URL used> <nanoseconds of last generation since UNIX epoch>
+```
+
 ### 2. REST API Server
 
 POST endpoint at `/api/recommend`, port 52004.
