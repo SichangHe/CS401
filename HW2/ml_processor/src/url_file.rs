@@ -8,41 +8,19 @@ use apriori::{apriori, Rule};
 
 use super::*;
 
-const MIN_SUPPORT: f32 = 0.3;
-const MIN_CONFIDENCE: f32 = 0.6;
-const MAX_LENGTH: usize = 5;
+const MIN_SUPPORT: f32 = 0.025;
+const MIN_CONFIDENCE: f32 = 0.7;
+const MAX_LENGTH: usize = 8;
 
-pub fn process_data(
-    dataset_url: &str,
-    songs_url: &str,
-    data_dir: impl AsRef<Path>,
-) -> Result<Vec<Rule>> {
-    let data_dir = data_dir.as_ref();
-    // let songs_file_content = read_url_file(songs_url, data_dir)?;
+pub fn process_data(dataset_url: &str, data_dir: impl AsRef<Path>) -> Result<Vec<Rule>> {
     let dataset_file_content = read_url_file(dataset_url, data_dir)?;
-
     let mut data_set_lines = dataset_file_content.lines();
 
-    let (playlist_id_index, track_name_index) = {
-        let mut playlist_id_index = None;
-        let mut track_name_index = None;
-        for (index, attribute) in data_set_lines
+    let (playlist_id_index, track_name_index) = get_playlist_id_and_track_name_index_in_header(
+        data_set_lines
             .next()
-            .expect("The dataset file is empty.")
-            .split(',')
-            .enumerate()
-        {
-            match attribute {
-                "pid" => playlist_id_index = Some(index),
-                "track_name" => track_name_index = Some(index),
-                _ => {}
-            }
-        }
-        (
-            playlist_id_index.expect("Dataset file has no `pid` column."),
-            track_name_index.expect("Dataset file has no `track_name` column."),
-        )
-    };
+            .context("The dataset file is empty.")?,
+    )?;
 
     let mut raw_transactions = HashMap::<&str, HashSet<&str>>::new();
     for line in data_set_lines {
@@ -56,21 +34,36 @@ pub fn process_data(
             }
         }
         raw_transactions
-            .entry(playlist_id.expect("Line does not contain `pid` column"))
+            .entry(playlist_id.context("Line does not contain `pid` column")?)
             .or_default()
-            .insert(track_name.expect("Line does not contain `track_name` column"));
+            .insert(track_name.context("Line does not contain `track_name` column")?);
     }
+    debug!("Got {} playlists.", raw_transactions.len());
 
-    // TODO: Does this work?
     let (rules, _frequent_itemsets) = apriori(
         raw_transactions.into_values().collect(),
         MIN_SUPPORT,
         MIN_CONFIDENCE,
-        // TODO: Limitation?
         MAX_LENGTH,
     );
 
     Ok(rules)
+}
+
+fn get_playlist_id_and_track_name_index_in_header(header: &str) -> Result<(usize, usize)> {
+    let mut playlist_id_index = None;
+    let mut track_name_index = None;
+    for (index, attribute) in header.split(',').enumerate() {
+        match attribute {
+            "pid" => playlist_id_index = Some(index),
+            "track_name" => track_name_index = Some(index),
+            _ => {}
+        }
+    }
+    Ok((
+        playlist_id_index.context("Dataset file has no `pid` column.")?,
+        track_name_index.context("Dataset file has no `track_name` column.")?,
+    ))
 }
 
 fn read_url_file(url: &str, data_dir: impl AsRef<Path>) -> Result<String> {

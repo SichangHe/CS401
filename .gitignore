@@ -16,6 +16,7 @@
 **.sqlite*
 
 # Documents
+**.bincode
 **.csv
 **.doc*
 **.pdf

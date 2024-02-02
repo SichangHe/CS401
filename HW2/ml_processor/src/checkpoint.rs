@@ -1,7 +1,5 @@
 use std::{
-    fs::File,
     io::Write,
-    path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -53,14 +51,16 @@ pub fn check_checkpoint(dataset_url: &str, checkpoint_path: impl AsRef<Path>) ->
 }
 
 pub fn write_checkpoint(dataset_url: &str, checkpoint_path: impl AsRef<Path>) -> Result<()> {
-    let mut checkpoint_file = File::create(checkpoint_path)?;
+    let mut checkpoint_file =
+        File::create(checkpoint_path).context("Failed to create checkpoint file")?;
     writeln!(
         checkpoint_file,
         "{} {} {}",
         crate_version!(),
         dataset_url,
         unix_time().as_nanos()
-    )?;
+    )
+    .context("Failed to write to the checkpoint file.")?;
     debug!("Wrote checkpoint file.");
 
     Ok(())
