@@ -8,17 +8,6 @@ use log::debug;
 
 use super::*;
 
-pub fn checkpoint_path(data_dir: impl AsRef<Path>) -> PathBuf {
-    data_dir.as_ref().join("ml_processor_checkpoint.txt")
-}
-
-/// Copied from <https://docs.rs/clap/latest/clap/macro.crate_version.html>.
-macro_rules! crate_version {
-    () => {
-        env!("CARGO_PKG_VERSION")
-    };
-}
-
 /// Check if the checkpoint uses the same configuration as we do.
 pub fn check_checkpoint(dataset_url: &str, checkpoint_path: impl AsRef<Path>) -> Result<bool> {
     let checkpoint_file_content =

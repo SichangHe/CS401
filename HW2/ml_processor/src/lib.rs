@@ -1,15 +1,12 @@
-use std::{
-    fs::File,
-    io::Read,
-    path::{Path, PathBuf},
-};
+use std::{fs::File, path::Path};
 
 use anyhow::{anyhow, Context, Result};
 use apriori::Rule;
 use bincode::serialize_into;
 use log::{debug, warn};
 
-use checkpoint::{check_checkpoint, checkpoint_path, write_checkpoint};
+use checkpoint::{check_checkpoint, write_checkpoint};
+use shared::*;
 use url_file::process_data;
 
 mod checkpoint;
@@ -42,17 +39,6 @@ pub fn run(dataset_url: &str, data_dir: impl AsRef<Path>) -> Result<()> {
     debug!("Writing new checkpoint to `{}`.", checkpoint_path.display());
     write_checkpoint(dataset_url, &checkpoint_path)?;
     Ok(())
-}
-
-fn read_file(path: impl AsRef<Path>) -> Result<String> {
-    let mut file = File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-    Ok(content)
-}
-
-pub fn rules_path(data_dir: impl AsRef<Path>) -> PathBuf {
-    data_dir.as_ref().join("rules.bincode")
 }
 
 pub fn write_rules(rules: &[Rule], path: impl AsRef<Path>) -> Result<()> {
