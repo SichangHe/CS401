@@ -1,13 +1,9 @@
-use std::time::Duration;
-
 use notify::{recommended_watcher, Event, RecommendedWatcher, Watcher};
 
 use super::*;
 
-const TEN_SECONDS: Duration = Duration::from_secs(10);
-
-#[instrument(skip(sender))]
-pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
+#[instrument(skip(sender, exit))]
+pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>, mut exit: Receiver<()>) {
     let file_name = path.file_name().expect("`path` is not a file.");
     let parent = path.parent().unwrap_or_else(|| &path);
     loop {
@@ -20,7 +16,15 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
                 continue;
             }
         };
-        while let Some(maybe_event) = raw_receiver.recv().await {
+
+        loop {
+            let maybe_event = select! {
+                e = raw_receiver.recv() => if let Some(m) = e { m } else { break; },
+                _ = exit.recv() => {
+                    debug!("Received exit request.");
+                    return;
+                },
+            };
             match maybe_event {
                 Ok(event) => {
                     if event.paths.iter().any(|p| match p.file_name() {
@@ -43,6 +47,7 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
         }
 
         _ = watcher.unwatch(parent);
+        drop(watcher);
         sleep(TEN_SECONDS).await;
     }
 }

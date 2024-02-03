@@ -1,17 +1,25 @@
 use anyhow::{anyhow, Context, Result};
+use apriori::Rule;
+use read_rules::rule_query_server;
 use shared::*;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use tokio::{
-    main, spawn,
+    main, select, spawn,
     sync::mpsc::{channel, Receiver, Sender},
-    time::sleep,
+    time::{sleep, timeout},
 };
 use tracing::Level;
 use tracing::{debug, error, instrument, warn};
 
-use watch_file::keep_watching_file;
-
+mod read_rules;
 mod watch_file;
+
+const TEN_SECONDS: Duration = Duration::from_secs(10);
 
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]
@@ -20,18 +28,26 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
         .with_max_level(Level::DEBUG)
         .init();
 
-    let checkpoint_path = checkpoint_path(&data_dir);
-    let (mut fs_event_receiver, fs_watch_thread) = {
-        let (sender, receiver) = channel(1);
-        let thread = spawn(keep_watching_file(checkpoint_path, sender));
-        (receiver, thread)
-    };
+    let (query_sender, query_receiver) = channel(8);
+    let rule_query_thread = spawn(rule_query_server(data_dir.as_ref().into(), query_receiver));
 
-    while let Some(event) = fs_event_receiver.recv().await {
-        warn!(?event, "Got file watcher event.");
+    let (response_sender, mut response_receiver) = channel(1);
+    let mock_query = vec![
+        "Ride Wit Me".into(),
+        "Bottle It Up - Acoustic Mixtape".into(),
+        "DNA.".into(),
+    ];
+    for _ in 0..20 {
+        query_sender
+            .send((mock_query.clone(), response_sender.clone()))
+            .await?;
+        let response = response_receiver.recv().await;
+        warn!(?response, "Got response from rule query server.");
+        sleep(TEN_SECONDS).await;
     }
 
-    fs_watch_thread.await?;
+    drop(query_sender);
+    rule_query_thread.await?;
 
     Ok(())
 }

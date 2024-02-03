@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub const MAX_LENGTH: usize = 8;
+
 /// Copied from <https://docs.rs/clap/latest/clap/macro.crate_version.html>.
 #[macro_export]
 macro_rules! crate_version {

@@ -10,7 +10,6 @@ use super::*;
 
 const MIN_SUPPORT: f32 = 0.025;
 const MIN_CONFIDENCE: f32 = 0.7;
-const MAX_LENGTH: usize = 8;
 
 pub fn process_data(dataset_url: &str, data_dir: impl AsRef<Path>) -> Result<Vec<Rule>> {
     let dataset_file_content = read_url_file(dataset_url, data_dir)?;
