@@ -8,9 +8,11 @@ const TEN_SECONDS: Duration = Duration::from_secs(10);
 
 #[instrument(skip(sender))]
 pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
+    let file_name = path.file_name().expect("`path` is not a file.");
+    let parent = path.parent().unwrap_or_else(|| &path);
     loop {
         debug!("Starting watcher.");
-        let (mut watcher, mut raw_receiver) = match watch_file(&path) {
+        let (mut watcher, mut raw_receiver) = match watch_file(parent) {
             Ok(r) => r,
             Err(why) => {
                 error!(?why, "Failed to watch.");
@@ -21,9 +23,16 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
         while let Some(maybe_event) = raw_receiver.recv().await {
             match maybe_event {
                 Ok(event) => {
-                    if sender.send(event).await.is_err() {
-                        warn!("File watcher exiting because the channel is closed.");
-                        return;
+                    if event.paths.iter().any(|p| match p.file_name() {
+                        Some(changed_file_name) => *file_name == *changed_file_name,
+                        None => false,
+                    }) {
+                        if sender.send(event).await.is_err() {
+                            warn!("File watcher exiting because the channel is closed.");
+                            return;
+                        }
+                    } else {
+                        debug!(?event, "Filtering out irrelevent file watcher event.")
                     }
                 }
                 Err(why) => {
@@ -33,7 +42,7 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
             }
         }
 
-        _ = watcher.unwatch(&path);
+        _ = watcher.unwatch(parent);
         sleep(TEN_SECONDS).await;
     }
 }
