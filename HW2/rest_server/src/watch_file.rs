@@ -6,13 +6,14 @@ use super::*;
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 
+#[instrument(skip(sender))]
 pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
     loop {
-        debug!("Starting watcher for `{}`.", path.display());
+        debug!("Starting watcher.");
         let (mut watcher, mut raw_receiver) = match watch_file(&path) {
             Ok(r) => r,
             Err(why) => {
-                error!("Failed to watch `{}`: {}.", path.display(), why);
+                error!(?why, "Failed to watch.");
                 sleep(TEN_SECONDS).await;
                 continue;
             }
@@ -26,7 +27,7 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>) {
                     }
                 }
                 Err(why) => {
-                    error!("Received file watcher error: {}. Restarting watcher", why);
+                    error!(?why, "Received file watcher error. Restarting watcher");
                     break;
                 }
             }

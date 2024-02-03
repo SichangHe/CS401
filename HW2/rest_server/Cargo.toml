@@ -9,7 +9,6 @@ edition = "2021"
 anyhow.workspace = true
 apriori.workspace = true
 bincode.workspace = true
-log.workspace = true
 notify = { version = "6.1", default-features = false, features = [
     "macos_kqueue",
 ] }
@@ -20,7 +19,6 @@ tokio = { version = "1", features = [
     "time",
 ] }
 tracing = "0.1"
-tracing-log = "0.2"
 tracing-subscriber = "0.3"
 
 shared.workspace = true
