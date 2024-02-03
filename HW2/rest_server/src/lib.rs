@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use apriori::Rule;
 use read_rules::rule_query_server;
 use shared::*;
@@ -19,7 +19,7 @@ use tracing::{debug, error, instrument, warn};
 mod read_rules;
 mod watch_file;
 
-const TEN_SECONDS: Duration = Duration::from_secs(10);
+const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]
@@ -43,7 +43,7 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
             .await?;
         let response = response_receiver.recv().await;
         warn!(?response, "Got response from rule query server.");
-        sleep(TEN_SECONDS).await;
+        sleep(FIVE_SECONDS).await;
     }
 
     drop(query_sender);

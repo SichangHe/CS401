@@ -2,8 +2,8 @@ use notify::{recommended_watcher, Event, RecommendedWatcher, Watcher};
 
 use super::*;
 
-#[instrument(skip(sender, exit))]
-pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>, mut exit: Receiver<()>) {
+// #[instrument(skip(sender, exit))]
+pub async fn keep_watching_file(path: PathBuf, sender: Sender<bool>, mut exit: Receiver<()>) {
     let file_name = path.file_name().expect("`path` is not a file.");
     let parent = path.parent().unwrap_or_else(|| &path);
     loop {
@@ -12,7 +12,7 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>, mut exit: 
             Ok(r) => r,
             Err(why) => {
                 error!(?why, "Failed to watch.");
-                sleep(TEN_SECONDS).await;
+                sleep(FIVE_SECONDS).await;
                 continue;
             }
         };
@@ -27,16 +27,14 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>, mut exit: 
             };
             match maybe_event {
                 Ok(event) => {
-                    if event.paths.iter().any(|p| match p.file_name() {
+                    debug!(?event, "File watcher received event.");
+                    let file_watched_changed = event.paths.iter().any(|p| match p.file_name() {
                         Some(changed_file_name) => *file_name == *changed_file_name,
                         None => false,
-                    }) {
-                        if sender.send(event).await.is_err() {
-                            warn!("File watcher exiting because the channel is closed.");
-                            return;
-                        }
-                    } else {
-                        debug!(?event, "Filtering out irrelevent file watcher event.")
+                    });
+                    if sender.send(file_watched_changed).await.is_err() {
+                        warn!("File watcher exiting because the channel is closed.");
+                        return;
                     }
                 }
                 Err(why) => {
@@ -48,7 +46,7 @@ pub async fn keep_watching_file(path: PathBuf, sender: Sender<Event>, mut exit: 
 
         _ = watcher.unwatch(parent);
         drop(watcher);
-        sleep(TEN_SECONDS).await;
+        sleep(FIVE_SECONDS).await;
     }
 }
 

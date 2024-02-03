@@ -13,51 +13,38 @@ pub async fn rule_query_server(
 ) {
     let checkpoint_path = checkpoint_path(&data_dir);
     let (mut fs_event_receiver, fs_exit_sender, fs_watch_thread) = {
-        let (sender, receiver) = channel(1);
+        let (sender, receiver) = channel(16);
         let (exit_sender, exit_receiver) = channel(1);
-        let thread = spawn(keep_watching_file(checkpoint_path, sender, exit_receiver));
+        let thread = spawn(keep_watching_file(
+            checkpoint_path.clone(),
+            sender,
+            exit_receiver,
+        ));
         (receiver, exit_sender, thread)
     };
 
     let rules_path = rules_path(&data_dir);
 
-    'make_rules: loop {
-        let rules_map = match make_rules_map(&rules_path) {
-            Ok(r) => r,
-            Err(why) => {
-                error!(?why, "Failed to read rules from file.");
-                sleep(TEN_SECONDS).await;
-                continue;
-            }
-        };
-        let rules_map = Arc::new(rules_map);
-        loop {
-            select! {
-                maybe_query = query_receiver.recv() => {
-                    match maybe_query {
-                        Some((query, response_sender)) => drop(spawn(answer_query(
-                                query, Arc::clone(&rules_map), response_sender
-                            ))),
-                        None => {
-                            warn!("Query sender is closed. Exiting.");
-                            break 'make_rules;
-                        },
-                    }
-                }
-                maybe_fs_event = fs_event_receiver.recv() => {
-                    let event = maybe_fs_event
-                        .expect("File watcher should not exit before rule query server.");
-                    warn!(?event, "Got file watcher event. Reloading rules.");
-                    break;
-                }
-            }
+    loop {
+        match try_serve_queries(
+            &checkpoint_path,
+            &rules_path,
+            &mut query_receiver,
+            &mut fs_event_receiver,
+        )
+        .await
+        {
+            Ok(true) => break,
+            Ok(false) => continue,
+            Err(why) => error!(?why, "Failed to serve queries."),
         }
+        sleep(FIVE_SECONDS).await;
     }
 
     drop(fs_event_receiver);
     _ = fs_exit_sender.send(()).await;
     let abort_handle = fs_watch_thread.abort_handle();
-    match timeout(TEN_SECONDS, fs_watch_thread).await {
+    match timeout(FIVE_SECONDS, fs_watch_thread).await {
         Ok(Ok(_)) => {}
         Ok(Err(why)) => error!(?why, "File watcher thread exited with error."),
         Err(_) => {
@@ -65,6 +52,53 @@ pub async fn rule_query_server(
             error!("File watcher thread took too long to exit. Aborted.");
         }
     }
+}
+
+async fn try_serve_queries(
+    checkpoint_path: &Path,
+    rules_path: &Path,
+    query_receiver: &mut Receiver<(Vec<String>, Sender<Vec<String>>)>,
+    fs_event_receiver: &mut Receiver<bool>,
+) -> Result<bool> {
+    drain_receiver(fs_event_receiver);
+    let timestamp = checkpoint_timestamp(checkpoint_path)?;
+    let rules_map = make_rules_map(rules_path).context("Failed to read rules from file.")?;
+    let rules_map = Arc::new(rules_map);
+
+    Ok(loop {
+        let watched_file_changed = select! {
+            maybe_query = query_receiver.recv() => {
+                match maybe_query {
+                    Some((query, response_sender)) => {
+                        drop(spawn(answer_query(
+                            // TODO: Send timestamp as well.
+                            query, Arc::clone(&rules_map), response_sender
+                        )));
+                        continue;
+                    },
+                    None => {
+                        warn!("Query sender is closed. Exiting.");
+                        break true;
+                    },
+                }
+            }
+            maybe_watched_file_changed = fs_event_receiver.recv() => {
+                maybe_watched_file_changed
+                    .context("File watcher should not exit before rule query server.")?
+            }
+        };
+        debug!(?watched_file_changed, "Got file watcher event.");
+
+        let new_timestamp = checkpoint_timestamp(checkpoint_path)?;
+        if new_timestamp != timestamp {
+            warn!(new_timestamp, "Got file watcher event. Reloading rules.");
+            break false;
+        }
+    })
+}
+
+fn drain_receiver<T>(receiver: &mut Receiver<T>) {
+    while receiver.try_recv().is_ok() {}
 }
 
 #[instrument(skip(rules_map, response_sender))]
@@ -97,6 +131,15 @@ async fn answer_query(
         Ok(_) => debug!("Sent response."),
         Err(_) => debug!("Sender stoped listening."),
     }
+}
+
+fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<u128> {
+    read_file(checkpoint_path)?
+        .split_whitespace()
+        .nth(2)
+        .context("No timestamp found")?
+        .parse()
+        .context("Failed to parse timestamp number")
 }
 
 #[instrument]
