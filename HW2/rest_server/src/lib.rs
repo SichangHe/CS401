@@ -2,12 +2,14 @@
 use anyhow::{Context, Result};
 use apriori::Rule;
 use read_rules::rule_query_server;
+use serde::Serialize;
 use shared::*;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
     path::{Path, PathBuf},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    sync::Arc,
+    time::{Duration, Instant},
 };
 use tokio::{
     main, select, spawn,
@@ -42,8 +44,10 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
     let query = QueryServerMsg::Query(mock_query.clone(), response_sender.clone());
     for _ in 0..20 {
         query_sender.send(query.clone()).await?;
-        let response = response_receiver.recv().await;
-        warn!(?response, "Got response from rule query server.");
+        let (playlist_ids, model_date) = response_receiver.recv().await.unwrap();
+        let response = RecommendationResponse::new(playlist_ids, &model_date);
+        let response = serde_json::to_string(&response)?;
+        warn!(response);
         sleep(FIVE_SECONDS).await;
     }
 
@@ -52,4 +56,21 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
     rule_query_thread.await?;
 
     Ok(())
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RecommendationResponse<'a> {
+    pub playlist_ids: Vec<String>,
+    pub version: &'a str,
+    pub model_date: &'a str,
+}
+
+impl<'a> RecommendationResponse<'a> {
+    pub fn new(playlist_ids: Vec<String>, model_date: &'a str) -> Self {
+        Self {
+            playlist_ids,
+            version: crate_version!(),
+            model_date,
+        }
+    }
 }

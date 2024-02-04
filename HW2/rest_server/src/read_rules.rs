@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use chrono::NaiveDateTime;
 use itertools::Itertools;
 
 use super::*;
@@ -55,11 +54,11 @@ pub async fn rule_query_server(
 
 #[derive(Clone, Debug)]
 pub enum QueryServerMsg {
-    Query(Vec<String>, Sender<Vec<String>>),
+    Query(Vec<String>, Sender<(Vec<String>, Arc<str>)>),
     WatchedFileChanged(Instant),
-    NewCheckpoint(u64),
+    NewCheckpoint(i64),
     NewRules {
-        timestamp: u64,
+        timestamp: i64,
         rules_map: Arc<HashMap<Vec<String>, HashSet<String>>>,
         when: Instant,
     },
@@ -76,15 +75,18 @@ async fn try_serve_queries(
     let mut last_check = Instant::now();
     let (mut current_timestamp, mut current_rules_map) = read_rules(checkpoint_path, rules_path)?;
     let mut timestamp_checked = current_timestamp;
-    let mut data_time = time_from_unix(current_timestamp);
+    let mut data_datetime = NaiveDateTime::from_timestamp_nanos(current_timestamp)
+        .unwrap()
+        .to_string()
+        .into();
 
     while let Some(message) = query_receiver.recv().await {
         match message {
             QueryServerMsg::Query(query, response_sender) => {
                 drop(spawn(answer_query(
-                    // TODO: Send timestamp as well.
                     query,
                     Arc::clone(&current_rules_map),
+                    Arc::clone(&data_datetime),
                     response_sender,
                 )));
                 continue;
@@ -128,8 +130,11 @@ async fn try_serve_queries(
                     last_check = when;
 
                     timestamp_checked = timestamp;
-                    data_time = time_from_unix(current_timestamp);
-                    info!(?data_time);
+                    data_datetime = NaiveDateTime::from_timestamp_nanos(current_timestamp)
+                        .unwrap()
+                        .to_string()
+                        .into();
+                    info!(?data_datetime);
                 }
             }
             QueryServerMsg::ReadRules(when) if when > last_check => {
@@ -170,7 +175,7 @@ async fn try_serve_queries(
 
 async fn check_checkpoint(
     checkpoint_path: &Path,
-    current_timestamp: u64,
+    current_timestamp: i64,
     query_sender: &Sender<QueryServerMsg>,
 ) -> Result<()> {
     let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
@@ -187,7 +192,7 @@ async fn check_checkpoint(
 async fn update_rules(
     checkpoint_path: &Path,
     rules_path: &Path,
-    old_timestamp: u64,
+    old_timestamp: i64,
     query_sender: &Sender<QueryServerMsg>,
 ) -> Result<()> {
     let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
@@ -209,7 +214,7 @@ async fn update_rules(
 fn read_rules(
     checkpoint_path: &Path,
     rules_path: &Path,
-) -> Result<(u64, Arc<HashMap<Vec<String>, HashSet<String>>>)> {
+) -> Result<(i64, Arc<HashMap<Vec<String>, HashSet<String>>>)> {
     let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
     let rules_map = make_rules_map(rules_path).context("Read rules from file")?;
     let rules_map = Arc::new(rules_map);
@@ -220,7 +225,8 @@ fn read_rules(
 async fn answer_query(
     mut query: Vec<String>,
     rules_map: Arc<HashMap<Vec<String>, HashSet<String>>>,
-    response_sender: Sender<Vec<String>>,
+    datetime: Arc<str>,
+    response_sender: Sender<(Vec<String>, Arc<str>)>,
 ) {
     query.sort_unstable();
     query.dedup();
@@ -241,15 +247,11 @@ async fn answer_query(
 
     debug!("Sending response.");
     _ = response_sender
-        .send(response.into_iter().cloned().collect())
+        .send((response.into_iter().cloned().collect(), datetime))
         .await;
 }
 
-fn time_from_unix(unix_time: u64) -> SystemTime {
-    UNIX_EPOCH + Duration::from_nanos(unix_time)
-}
-
-fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<u64> {
+fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<i64> {
     read_file(&checkpoint_path)
         .with_context(|| format!("Read {:?}", checkpoint_path.as_ref()))?
         .split_whitespace()

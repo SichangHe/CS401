@@ -48,7 +48,7 @@ The response contains playlist recommendations.
 ```jsonc
 {
     "playlist_ids": [
-        69, // … // Or string?
+        "jfwioefjwoiefwjo",
     ], // playlist IDs that the user may enjoy
     "version": "vx.x.x", // version of the code running
     "model_date": "yyyy-mm-dd" // date when ML model was last updated
