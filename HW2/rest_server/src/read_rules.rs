@@ -56,11 +56,13 @@ pub async fn rule_query_server(
 pub enum QueryServerMsg {
     Query(Vec<String>, Sender<Vec<String>>),
     WatchedFileChanged(Instant),
+    NewCheckpoint(u64),
     NewRules {
-        timestamp: u128,
+        timestamp: u64,
         rules_map: Arc<HashMap<Vec<String>, HashSet<String>>>,
         when: Instant,
     },
+    ReadRules(Instant),
     Exit,
 }
 
@@ -70,8 +72,10 @@ async fn try_serve_queries(
     query_receiver: &mut Receiver<QueryServerMsg>,
     query_sender: &mut Sender<QueryServerMsg>,
 ) -> Result<()> {
-    let mut last_read = Instant::now();
+    let mut last_check = Instant::now();
     let (mut current_timestamp, mut current_rules_map) = read_rules(checkpoint_path, rules_path)?;
+    let mut timestamp_checked = current_timestamp;
+    let mut data_time = time_from_unix(current_timestamp);
 
     while let Some(message) = query_receiver.recv().await {
         match message {
@@ -84,31 +88,74 @@ async fn try_serve_queries(
                 )));
                 continue;
             }
-            QueryServerMsg::WatchedFileChanged(when_changed) if when_changed > last_read => {
-                let checkpoint_path = checkpoint_path.into();
-                let rules_path = rules_path.into();
+            QueryServerMsg::WatchedFileChanged(when_changed) if when_changed > last_check => {
+                debug!(?when_changed, "File changed.");
+                let checkpoint_path = checkpoint_path.to_owned();
                 let query_sender = query_sender.clone();
-                drop(spawn(async move {
+                spawn(async move {
                     if let Err(why) =
-                        update_rules(checkpoint_path, rules_path, current_timestamp, query_sender)
-                            .await
+                        check_checkpoint(&checkpoint_path, current_timestamp, &query_sender).await
                     {
-                        error!(?why, "Failed to update rules.");
+                        error!(?why, "Failed to check checkpoint.");
+                        sleep(FIVE_SECONDS).await;
+                        query_sender
+                            .send(QueryServerMsg::WatchedFileChanged(when_changed))
+                            .await
+                            .unwrap();
                     }
-                }));
+                });
             }
             QueryServerMsg::WatchedFileChanged(_) => {}
+            QueryServerMsg::NewCheckpoint(timestamp) if timestamp > timestamp_checked => {
+                debug!(?timestamp, "New checkpoint.");
+                timestamp_checked = timestamp;
+                query_sender
+                    .send(QueryServerMsg::ReadRules(Instant::now()))
+                    .await
+                    .expect("I own an open receiver.");
+            }
+            QueryServerMsg::NewCheckpoint(_) => {}
             QueryServerMsg::NewRules {
                 timestamp,
                 rules_map,
                 when,
             } => {
                 if timestamp > current_timestamp {
+                    debug!(?timestamp, "New rules.");
                     current_timestamp = timestamp;
                     current_rules_map = rules_map;
-                    last_read = when;
+                    last_check = when;
+
+                    timestamp_checked = timestamp;
+                    data_time = time_from_unix(current_timestamp);
+                    debug!(?data_time);
                 }
             }
+            QueryServerMsg::ReadRules(when) if when > last_check => {
+                debug!(?when, "Reading rules.");
+                last_check = when;
+
+                let checkpoint_path = checkpoint_path.to_owned();
+                let rules_path = rules_path.to_owned();
+                let query_sender = query_sender.clone();
+                drop(spawn(async move {
+                    if let Err(why) = update_rules(
+                        &checkpoint_path,
+                        &rules_path,
+                        current_timestamp,
+                        &query_sender,
+                    )
+                    .await
+                    {
+                        error!(?why, "Failed to update rules.");
+                        let when_fail = Instant::now();
+                        sleep(FIVE_SECONDS).await;
+                        let retry_event = QueryServerMsg::ReadRules(when_fail);
+                        query_sender.send(retry_event).await.unwrap()
+                    }
+                }));
+            }
+            QueryServerMsg::ReadRules(_) => {}
             QueryServerMsg::Exit => {
                 debug!("Got exit message.");
                 break;
@@ -120,16 +167,32 @@ async fn try_serve_queries(
     Ok(())
 }
 
-async fn update_rules(
-    checkpoint_path: PathBuf,
-    rules_path: PathBuf,
-    old_timestamp: u128,
-    query_sender: Sender<QueryServerMsg>,
+async fn check_checkpoint(
+    checkpoint_path: &Path,
+    current_timestamp: u64,
+    query_sender: &Sender<QueryServerMsg>,
 ) -> Result<()> {
-    let timestamp = checkpoint_timestamp(&checkpoint_path).context("Checkpoint timestamp")?;
+    let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
+    if timestamp > current_timestamp {
+        _ = query_sender
+            .clone()
+            .send(QueryServerMsg::NewCheckpoint(timestamp))
+            .await
+    }
+
+    Ok(())
+}
+
+async fn update_rules(
+    checkpoint_path: &Path,
+    rules_path: &Path,
+    old_timestamp: u64,
+    query_sender: &Sender<QueryServerMsg>,
+) -> Result<()> {
+    let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
     if timestamp != old_timestamp {
         let (timestamp, rules_map) =
-            read_rules(&checkpoint_path, &rules_path).context("Failed to read rules from file.")?;
+            read_rules(checkpoint_path, rules_path).context("Failed to read rules from file.")?;
         _ = query_sender
             .clone()
             .send(QueryServerMsg::NewRules {
@@ -145,7 +208,7 @@ async fn update_rules(
 fn read_rules(
     checkpoint_path: &Path,
     rules_path: &Path,
-) -> Result<(u128, Arc<HashMap<Vec<String>, HashSet<String>>>)> {
+) -> Result<(u64, Arc<HashMap<Vec<String>, HashSet<String>>>)> {
     let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
     let rules_map = make_rules_map(rules_path).context("Read rules from file")?;
     let rules_map = Arc::new(rules_map);
@@ -183,8 +246,11 @@ async fn answer_query(
         Err(_) => debug!("Sender stoped listening."),
     }
 }
+fn time_from_unix(unix_time: u64) -> SystemTime {
+    UNIX_EPOCH + Duration::from_nanos(unix_time)
+}
 
-fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<u128> {
+fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<u64> {
     read_file(&checkpoint_path)
         .with_context(|| format!("Read {:?}", checkpoint_path.as_ref()))?
         .split_whitespace()
