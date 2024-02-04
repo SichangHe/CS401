@@ -21,6 +21,7 @@ use tracing::{debug, error, info, instrument, warn};
 use read_rules::QueryServerMsg;
 
 mod read_rules;
+mod serve;
 mod watch_file;
 
 const FIVE_SECONDS: Duration = Duration::from_secs(5);
@@ -34,6 +35,8 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
         query_sender.clone(),
         query_receiver,
     ));
+
+    drop(spawn(serve::serve()));
 
     let (response_sender, mut response_receiver) = channel(1);
     let mock_query = vec![
