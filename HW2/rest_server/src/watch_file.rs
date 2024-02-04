@@ -10,7 +10,7 @@ pub async fn keep_watching_file(
 ) {
     let parent = path.parent().unwrap_or_else(|| &path);
     loop {
-        debug!("Starting watcher.");
+        info!("Starting watcher.");
         let (mut watcher, mut raw_receiver) = match watch_file(parent) {
             Ok(r) => r,
             Err(why) => {
@@ -24,7 +24,7 @@ pub async fn keep_watching_file(
             let (maybe_event, when) = select! {
                 e = raw_receiver.recv() => if let Some(m) = e { m } else { break; },
                 _ = exit.recv() => {
-                    debug!("Received exit request.");
+                    info!("Received exit request.");
                     return;
                 },
             };

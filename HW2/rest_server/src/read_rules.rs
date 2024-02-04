@@ -6,13 +6,14 @@ use super::*;
 
 use watch_file::keep_watching_file;
 
-#[instrument(skip(query_sender, query_receiver))]
+#[instrument(skip(data_dir, query_sender, query_receiver))]
 pub async fn rule_query_server(
     data_dir: PathBuf,
     mut query_sender: Sender<QueryServerMsg>,
     mut query_receiver: Receiver<QueryServerMsg>,
 ) {
     let checkpoint_path = checkpoint_path(&data_dir);
+    info!(?data_dir, ?checkpoint_path);
     let (fs_exit_sender, fs_watch_thread) = {
         let (exit_sender, exit_receiver) = channel(1);
         let thread = spawn(keep_watching_file(
@@ -89,7 +90,7 @@ async fn try_serve_queries(
                 continue;
             }
             QueryServerMsg::WatchedFileChanged(when_changed) if when_changed > last_check => {
-                debug!(?when_changed, "File changed.");
+                info!(?when_changed, "File changed.");
                 let checkpoint_path = checkpoint_path.to_owned();
                 let query_sender = query_sender.clone();
                 spawn(async move {
@@ -107,7 +108,7 @@ async fn try_serve_queries(
             }
             QueryServerMsg::WatchedFileChanged(_) => {}
             QueryServerMsg::NewCheckpoint(timestamp) if timestamp > timestamp_checked => {
-                debug!(?timestamp, "New checkpoint.");
+                info!(?timestamp, "New checkpoint.");
                 timestamp_checked = timestamp;
                 query_sender
                     .send(QueryServerMsg::ReadRules(Instant::now()))
@@ -121,18 +122,18 @@ async fn try_serve_queries(
                 when,
             } => {
                 if timestamp > current_timestamp {
-                    debug!(?timestamp, "New rules.");
+                    info!(?timestamp, "New rules.");
                     current_timestamp = timestamp;
                     current_rules_map = rules_map;
                     last_check = when;
 
                     timestamp_checked = timestamp;
                     data_time = time_from_unix(current_timestamp);
-                    debug!(?data_time);
+                    info!(?data_time);
                 }
             }
             QueryServerMsg::ReadRules(when) if when > last_check => {
-                debug!(?when, "Reading rules.");
+                info!(?when, "Reading rules.");
                 last_check = when;
 
                 let checkpoint_path = checkpoint_path.to_owned();
@@ -157,7 +158,7 @@ async fn try_serve_queries(
             }
             QueryServerMsg::ReadRules(_) => {}
             QueryServerMsg::Exit => {
-                debug!("Got exit message.");
+                info!("Got exit message.");
                 break;
             }
         }
@@ -238,14 +239,12 @@ async fn answer_query(
         }
     }
 
-    match response_sender
+    debug!("Sending response.");
+    _ = response_sender
         .send(response.into_iter().cloned().collect())
-        .await
-    {
-        Ok(_) => debug!("Sent response."),
-        Err(_) => debug!("Sender stoped listening."),
-    }
+        .await;
 }
+
 fn time_from_unix(unix_time: u64) -> SystemTime {
     UNIX_EPOCH + Duration::from_nanos(unix_time)
 }
@@ -264,7 +263,7 @@ fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<u64> {
 fn make_rules_map(rules_path: &Path) -> Result<HashMap<Vec<String>, HashSet<String>>> {
     let file = File::open(rules_path)?;
     let rules: Vec<Rule> = bincode::deserialize_from(file)?;
-    debug!(n_rules = rules.len(), "Read rules from file.");
+    info!(n_rules = rules.len(), "Read rules from file.");
 
     Ok(rules
         .into_iter()

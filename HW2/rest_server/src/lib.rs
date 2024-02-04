@@ -7,15 +7,14 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     path::{Path, PathBuf},
-    time::{Duration, Instant, UNIX_EPOCH, SystemTime},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::{
     main, select, spawn,
     sync::mpsc::{channel, Receiver, Sender},
     time::{sleep, timeout},
 };
-use tracing::Level;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use read_rules::QueryServerMsg;
 
@@ -27,10 +26,6 @@ const FIVE_SECONDS: Duration = Duration::from_secs(5);
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]
 pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .init();
-
     let (query_sender, query_receiver) = channel(16);
     let rule_query_thread = spawn(rule_query_server(
         data_dir.as_ref().into(),
