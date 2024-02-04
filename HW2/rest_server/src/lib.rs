@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use anyhow::{Context, Result};
 use apriori::Rule;
 use read_rules::rule_query_server;
@@ -6,7 +7,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{
     main, select, spawn,
@@ -15,6 +16,8 @@ use tokio::{
 };
 use tracing::Level;
 use tracing::{debug, error, instrument, warn};
+
+use read_rules::QueryServerMsg;
 
 mod read_rules;
 mod watch_file;
@@ -28,8 +31,12 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
         .with_max_level(Level::DEBUG)
         .init();
 
-    let (query_sender, query_receiver) = channel(8);
-    let rule_query_thread = spawn(rule_query_server(data_dir.as_ref().into(), query_receiver));
+    let (query_sender, query_receiver) = channel(16);
+    let rule_query_thread = spawn(rule_query_server(
+        data_dir.as_ref().into(),
+        query_sender.clone(),
+        query_receiver,
+    ));
 
     let (response_sender, mut response_receiver) = channel(1);
     let mock_query = vec![
@@ -37,15 +44,15 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
         "Bottle It Up - Acoustic Mixtape".into(),
         "DNA.".into(),
     ];
+    let query = QueryServerMsg::Query(mock_query.clone(), response_sender.clone());
     for _ in 0..20 {
-        query_sender
-            .send((mock_query.clone(), response_sender.clone()))
-            .await?;
+        query_sender.send(query.clone()).await?;
         let response = response_receiver.recv().await;
         warn!(?response, "Got response from rule query server.");
         sleep(FIVE_SECONDS).await;
     }
 
+    query_sender.send(QueryServerMsg::Exit).await?;
     drop(query_sender);
     rule_query_thread.await?;
 
