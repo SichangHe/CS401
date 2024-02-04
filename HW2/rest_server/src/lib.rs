@@ -37,8 +37,16 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
         query_receiver,
     ));
 
-    drop(spawn(serve::serve(query_sender.clone())));
+    // _testing(query_sender.clone()).await?;
+    serve::serve(query_sender.clone()).await?;
 
+    query_sender.send(QueryServerMsg::Exit).await?;
+    rule_query_thread.await?;
+
+    Ok(())
+}
+
+async fn _testing(query_sender: Sender<QueryServerMsg>) -> Result<()> {
     let (response_sender, mut response_receiver) = channel(1);
     let mock_query = vec![
         "Ride Wit Me".into(),
@@ -54,10 +62,6 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
         warn!(response);
         sleep(FIVE_SECONDS).await;
     }
-
-    query_sender.send(QueryServerMsg::Exit).await?;
-    drop(query_sender);
-    rule_query_thread.await?;
 
     Ok(())
 }
