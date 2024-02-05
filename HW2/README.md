@@ -69,6 +69,18 @@ Web-based front-end.
 - Front-end container: read ML model, run REST server.
     - Export port from Docker.
 
+The container configuration in `compose.yml` and `Dockerfile` is bootstrapped with:
+
+```sh
+docker init
+```
+
+To run locally:
+
+```sh
+docker compose up --build
+```
+
 - Publish on DockerHub.
 
 ### 2. Configure the Kubernetes deployment and service
