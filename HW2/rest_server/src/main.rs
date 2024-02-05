@@ -18,5 +18,9 @@ fn main() -> Result<()> {
         Ok(d) => Box::leak(d.into()),
         Err(_) => "../ml_processor/ml-data",
     };
-    run(data_dir)
+    let port = match env::var("PORT") {
+        Ok(d) => Box::leak(d.into()),
+        Err(_) => "3000",
+    };
+    run(data_dir, port)
 }

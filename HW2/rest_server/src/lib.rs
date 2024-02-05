@@ -29,7 +29,7 @@ const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]
-pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
+pub async fn run(data_dir: impl AsRef<Path>, port: &str) -> Result<()> {
     let (query_sender, query_receiver) = channel(16);
     let rule_query_thread = spawn(rule_query_server(
         data_dir.as_ref().into(),
@@ -38,7 +38,7 @@ pub async fn run(data_dir: impl AsRef<Path>) -> Result<()> {
     ));
 
     // _testing(query_sender.clone()).await?;
-    serve::serve(query_sender.clone()).await?;
+    serve::serve(port, query_sender.clone()).await?;
 
     query_sender.send(QueryServerMsg::Exit).await?;
     rule_query_thread.await?;

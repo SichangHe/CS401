@@ -11,13 +11,13 @@ mod error;
 use error::AppError;
 
 #[instrument(skip(query_sender))]
-pub async fn serve(query_sender: Sender<QueryServerMsg>) -> Result<()> {
+pub async fn serve(port: &str, query_sender: Sender<QueryServerMsg>) -> Result<()> {
     info!("Starting server.");
     let app = Router::new().route("/", get(home_handler)).route(
         "/api/recommend",
         post(|request| async move { query_handler(request, query_sender.clone()).await }),
     );
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }
