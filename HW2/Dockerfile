@@ -8,7 +8,7 @@
 # Create a stage for building the application.
 
 ARG RUST_VERSION=1.75.0
-FROM rust:${RUST_VERSION}-slim-bullseye AS build
+FROM rust:${RUST_VERSION}-slim-bookworm AS build
 WORKDIR /app
 
 # Build the application.
@@ -28,22 +28,17 @@ RUN --mount=type=bind,source=ml_processor,target=ml_processor \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
     <<EOF
 set -e
-cargo build --bin rest_server --release
-cp target/release/rest_server /bin/server
+cargo build --release
+cp target/release/rest_server /bin/rest_server
+cp target/release/ml_processor /bin/ml_processor
 EOF
 
 ################################################################################
-# Create a new stage for running the application that contains the minimal
+# Create a new stage for running rest_server that contains the minimal
 # runtime dependencies for the application. This often uses a different base
 # image from the build stage where the necessary files are copied from the build
 # stage.
-#
-# The example below uses the debian bullseye image as the foundation for running the app.
-# By specifying the "bullseye-slim" tag, it will also use whatever happens to be the
-# most recent version of that tag when you build your Dockerfile. If
-# reproducability is important, consider using a digest
-# (e.g., debian@sha256:ac707220fbd7b67fc19b112cee8170b41a9e97f703f588b2cdbbcdcecdd8af57).
-FROM debian:bullseye-slim AS final
+FROM debian:bookworm-slim AS rest_server
 
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
@@ -59,10 +54,42 @@ RUN adduser \
 USER appuser
 
 # Copy the executable from the "build" stage.
-COPY --from=build /bin/server /bin/
+COPY --from=build /bin/rest_server /bin/
 
 # Expose the port that the application listens on.
 EXPOSE 3000
 
 # What the container should run when it is started.
-CMD ["/bin/server"]
+CMD ["/bin/rest_server"]
+
+################################################################################
+# Create a new stage for installing `aria2c`.
+FROM debian:bookworm-slim AS aria
+
+RUN apt update && apt install -y aria2
+
+################################################################################
+# Create a new stage for running ml_processor.
+FROM debian:bookworm-slim AS ml_processor
+
+# Create a non-privileged user that the app will run under.
+# See https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
+USER appuser
+
+# Get `aria2c` for downloading the model.
+COPY --from=aria /usr/bin/aria2c /usr/bin/aria2c
+
+# Copy the executable from the "build" stage.
+COPY --from=build /bin/ml_processor /bin/
+
+# What the container should run when it is started.
+CMD ["/bin/ml_processor"]
