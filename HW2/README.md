@@ -75,10 +75,10 @@ The container configuration in `compose.yml` and `Dockerfile` is bootstrapped wi
 docker init
 ```
 
-To run locally:
+To build locally:
 
 ```sh
-docker compose up --build
+docker compose build
 ```
 
 - Publish on DockerHub.
