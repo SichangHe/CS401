@@ -1,3 +1,5 @@
+use std::env;
+
 use anyhow::Result;
 use rest_server::run;
 use tracing::Level;
@@ -12,6 +14,9 @@ fn main() -> Result<()> {
         )
         .init();
 
-    let data_dir = "../ml_processor/ml-data";
+    let data_dir = match env::var("DATA_DIR") {
+        Ok(d) => Box::leak(d.into()),
+        Err(_) => "../ml_processor/ml-data",
+    };
     run(data_dir)
 }

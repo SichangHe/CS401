@@ -15,6 +15,10 @@ mod tests;
 mod url_file;
 
 pub fn run(dataset_url: &str, data_dir: impl AsRef<Path>) -> Result<()> {
+    debug!(
+        "Running with dataset `{dataset_url}` at `{:?}`.",
+        data_dir.as_ref()
+    );
     let checkpoint_path = checkpoint_path(&data_dir);
     match check_checkpoint(dataset_url, &checkpoint_path) {
         Ok(true) => {

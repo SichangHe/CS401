@@ -26,6 +26,9 @@ spec:
         volumeMounts:
         - mountPath: "/ml-data"
           name: ml-data-mnt
+        env:
+        - name: DATA_DIR
+          value: "/ml-data"
       restartPolicy: OnFailure
       # <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes>
       volumes:
@@ -58,6 +61,9 @@ spec:
         volumeMounts:
         - mountPath: "/ml-data"
           name: ml-data-mnt
+        env:
+        - name: DATA_DIR
+          value: "/ml-data"
       volumes:
       - name: ml-data-mnt
         persistentVolumeClaim:
