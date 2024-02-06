@@ -85,8 +85,7 @@ fn download(url: &str, data_dir: impl AsRef<Path>) -> Result<PathBuf> {
     let args = [
         "-o",
         file_path_str,
-        "--check-certificate",
-        "false",
+        "--check-certificate=false",
         "-c",
         url,
     ];

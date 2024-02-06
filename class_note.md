@@ -81,4 +81,8 @@ microservice: smaller scope & team, modularity, less complexity,
 
 service mesh proxy: load balancing, convert conventional communication protocol
 
-hysteresis: delay in response to change. cause instability, oscillation
+hysteresis: delay in response to change
+
+- cause instability, oscillation
+- event-based controller
+- stabilization window
