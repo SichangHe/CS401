@@ -75,6 +75,8 @@ The container configuration in `compose.yml` and `Dockerfile` is bootstrapped wi
 docker init
 ```
 
+The build process and the final containers are separated to reduce container sizes. A Rust container image is used to build both the ML processor and the REST server. Its artifacts are then copied to the final containers.
+
 To build locally:
 
 ```sh

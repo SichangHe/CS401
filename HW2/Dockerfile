@@ -45,7 +45,6 @@ RUN adduser \
     --no-create-home \
     --uid "${UID}" \
     appuser
-USER appuser
 
 ################################################################################
 # Create a new stage for running rest_server that contains the minimal
@@ -53,6 +52,7 @@ USER appuser
 # image from the build stage where the necessary files are copied from the build
 # stage.
 FROM template AS rest_server
+USER appuser
 
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/rest_server /bin/
@@ -64,18 +64,17 @@ EXPOSE 3000
 CMD ["/bin/rest_server"]
 
 ################################################################################
-# Create a new stage for installing `aria2c`.
-FROM debian:bookworm-slim AS aria
-
-RUN apt update && apt install -y aria2
-
-################################################################################
 # Create a new stage for running ml_processor.
 FROM template AS ml_processor
 
 # Get `aria2c` for downloading the model.
-COPY --from=aria /usr/bin/aria2c /usr/bin/aria2c
+RUN --mount=type=cache,target=/var/cache/apt/ \
+    --mount=type=cache,target=/var/lib/apt/ \
+    --mount=type=cache,target=/var/cache/apt/ \
+    apt update && \
+    apt install -y aria2
 
+USER appuser
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/ml_processor /bin/
 
