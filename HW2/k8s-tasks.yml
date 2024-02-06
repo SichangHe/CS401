@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: cs401-sh623-hw2-ml
-        image: hello-world:latest # TODO: Replace with ML container.
+        image: sssstevenhe/cs401-hw2-ml-processor:0.1.0
         volumeMounts:
         - mountPath: "/ml-data"
           name: ml-data-mnt
@@ -57,9 +57,9 @@ spec:
     spec:
       containers:
       - name: cs401-sh623-hw2-rest-server
-        image: swaagie/echo-server:latest # TODO: Replace with real server image.
+        image: sssstevenhe/cs401-hw2-rest-server:0.1.0
         ports:
-        - containerPort: 8080
+        - containerPort: 3000
         volumeMounts:
         - mountPath: "/ml-data"
           name: ml-data-mnt
@@ -67,7 +67,7 @@ spec:
         - name: DATA_DIR
           value: "/ml-data"
         - name: PORT
-          value: "8080"
+          value: "3000"
       volumes:
       - name: ml-data-mnt
         persistentVolumeClaim:
@@ -83,4 +83,4 @@ spec:
     app: cs401-sh623-hw2
   ports:
     - port: 52004
-      targetPort: 8080
+      targetPort: 3000
