@@ -78,7 +78,7 @@ docker init
 To build locally:
 
 ```sh
-docker compose build
+DOCKER_DEFAULT_PLATFORM="linux/amd64" docker compose build
 ```
 
 - Publish on DockerHub.
