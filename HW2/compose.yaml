@@ -10,14 +10,14 @@
 version: 0.1.0
 services:
   rest_server:
-    image: cs401-hw2-rest-server:0.1.0
+    image: sssstevenhe/cs401-hw2-rest-server:0.1.0
     build:
       context: .
       target: rest_server
     ports:
       - 3000:3000
   ml_processor:
-    image: cs401-hw2-ml-processor:0.1.0
+    image: sssstevenhe/cs401-hw2-ml-processor:0.1.0
     build:
       context: .
       target: ml_processor
