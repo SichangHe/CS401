@@ -86,3 +86,20 @@ hysteresis: delay in response to change
 - cause instability, oscillation
 - event-based controller
 - stabilization window
+
+serverless/ FaaS: API redirection & runtime & DB by provider.
+    event-driven, stateless, scale from zero to infinite
+
+classic software development → agile → DevOps →
+    site reliability engineering (SRE):
+    merge development, quality assurance, operation
+
+- version management
+- extensive testing in continuous integration
+- sandbox & canary deployment
+- SRE: half time development, max half time operation,
+    overflow redirect to development team
+    - on-call shift
+        - post-mortem report, pager fatigue
+    - error budget: target < 100% availability, adjust development accordingly
+    - playbook: automate away human
