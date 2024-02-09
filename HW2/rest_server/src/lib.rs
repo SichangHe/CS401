@@ -14,7 +14,10 @@ use std::{
 };
 use tokio::{
     main, select, spawn,
-    sync::mpsc::{channel, error::SendError, Receiver, Sender},
+    sync::{
+        mpsc::{channel, error::SendError, Receiver, Sender},
+        oneshot,
+    },
     task::JoinHandle,
     time::{sleep, timeout},
 };
@@ -32,11 +35,11 @@ const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
 pub struct ActorHandle<A: Actor> {
     actor: JoinHandle<Result<()>>,
-    actor_ref: ActorRef<A::Msg>,
+    actor_ref: ActorRef<A>,
 }
 
 impl<A: Actor> ActorHandle<A> {
-    pub fn actor_ref(&self) -> &ActorRef<A::Msg> {
+    pub fn actor_ref(&self) -> &ActorRef<A> {
         &self.actor_ref
     }
 
@@ -44,20 +47,34 @@ impl<A: Actor> ActorHandle<A> {
         self.actor.abort()
     }
 
-    pub fn to_parts(self) -> (JoinHandle<Result<()>>, ActorRef<A::Msg>) {
+    pub fn to_parts(self) -> (JoinHandle<Result<()>>, ActorRef<A>) {
         (self.actor, self.actor_ref)
     }
 }
 
 #[derive(Debug)]
-pub struct ActorRef<M> {
-    pub self_sender: Sender<M>,
+pub struct ActorRef<A: Actor> {
+    pub self_sender: Sender<ActorMsg<A>>,
     pub cancellation_token: CancellationToken,
 }
 
-impl<M: Send> ActorRef<M> {
-    pub fn send(&mut self, msg: M) -> impl Future<Output = Result<(), SendError<M>>> + '_ {
-        self.self_sender.send(msg)
+impl<A: Actor> ActorRef<A> {
+    pub fn cast(
+        &mut self,
+        msg: A::CastMsg,
+    ) -> impl Future<Output = Result<(), SendError<ActorMsg<A>>>> + '_ {
+        self.self_sender.send(ActorMsg::Cast(msg))
+    }
+
+    pub async fn call(&mut self, msg: A::CallMsg) -> Result<A::Reply> {
+        let (reply_sender, reply_receiver) = oneshot::channel();
+        self.self_sender
+            .send(ActorMsg::Call(msg, reply_sender))
+            .await
+            .context("Failed to send call to actor")?;
+        reply_receiver
+            .await
+            .context("Failed to receive actor's reply")
     }
 
     pub fn cancel(&mut self) {
@@ -65,7 +82,7 @@ impl<M: Send> ActorRef<M> {
     }
 }
 
-impl<M> Clone for ActorRef<M> {
+impl<A: Actor> Clone for ActorRef<A> {
     fn clone(&self) -> Self {
         Self {
             self_sender: self.self_sender.clone(),
@@ -74,20 +91,46 @@ impl<M> Clone for ActorRef<M> {
     }
 }
 
+pub enum ActorMsg<A: Actor> {
+    Call(A::CallMsg, oneshot::Sender<A::Reply>),
+    Cast(A::CastMsg),
+}
+
 pub trait Actor: Sized + Send + 'static {
-    type Msg: Send;
+    type CallMsg: Send + Sync;
+    type CastMsg: Send + Sync;
     type Reply: Send;
 
-    fn handle(
+    fn handle_cast(
         &mut self,
-        msg: Self::Msg,
-        env: &ActorRef<Self::Msg>,
+        msg: Self::CastMsg,
+        env: &ActorRef<Self>,
     ) -> impl Future<Output = Result<()>> + Send;
+
+    fn handle_call(
+        &mut self,
+        msg: Self::CallMsg,
+        env: &ActorRef<Self>,
+        reply_sender: oneshot::Sender<Self::Reply>,
+    ) -> impl Future<Output = Result<()>> + Send;
+
+    fn handle_call_or_cast(
+        &mut self,
+        msg: ActorMsg<Self>,
+        env: &ActorRef<Self>,
+    ) -> impl Future<Output = Result<()>> + Send {
+        async move {
+            match msg {
+                ActorMsg::Call(msg, reply_sender) => self.handle_call(msg, env, reply_sender).await,
+                ActorMsg::Cast(msg) => self.handle_cast(msg, env).await,
+            }
+        }
+    }
 
     fn handle_continuously(
         &mut self,
-        mut receiver: Receiver<Self::Msg>,
-        env: ActorRef<Self::Msg>,
+        mut receiver: Receiver<ActorMsg<Self>>,
+        env: ActorRef<Self>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
             loop {
@@ -102,7 +145,7 @@ pub trait Actor: Sized + Send + 'static {
                 };
 
                 select! {
-                    maybe_ok = self.handle(msg, &env) => maybe_ok,
+                    maybe_ok = self.handle_call_or_cast(msg, &env) => maybe_ok,
                     () = env.cancellation_token.cancelled() => return Ok(()),
                 }?;
             }
@@ -110,14 +153,15 @@ pub trait Actor: Sized + Send + 'static {
     }
 
     fn spawn(mut self) -> ActorHandle<Self> {
-        let (self_sender, receiver) = channel(8);
+        let (self_sender, actor_receiver) = channel(8);
+
         let actor_ref = ActorRef {
             self_sender,
             cancellation_token: CancellationToken::new(),
         };
         let actor = {
             let env = actor_ref.clone();
-            spawn(async move { self.handle_continuously(receiver, env).await })
+            spawn(async move { self.handle_continuously(actor_receiver, env).await })
         };
 
         ActorHandle { actor, actor_ref }
