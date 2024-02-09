@@ -30,39 +30,42 @@ mod watch_file;
 
 const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
-pub struct ActorRef<A: Actor> {
+pub struct ActorHandle<A: Actor> {
     actor: JoinHandle<Result<()>>,
-    env: ActorEnv<A::Msg>,
+    actor_ref: ActorRef<A::Msg>,
 }
 
-impl<A: Actor> ActorRef<A> {
-    pub fn send(
-        &mut self,
-        msg: A::Msg,
-    ) -> impl Future<Output = Result<(), SendError<<A as Actor>::Msg>>> + '_ {
-        self.env.self_sender.send(msg)
-    }
-
-    pub fn cancel(&mut self) {
-        self.env.cancellation_token.cancel()
+impl<A: Actor> ActorHandle<A> {
+    pub fn actor_ref(&self) -> &ActorRef<A::Msg> {
+        &self.actor_ref
     }
 
     pub fn abort(self) {
         self.actor.abort()
     }
 
-    pub fn to_parts(self) -> (JoinHandle<Result<()>>, ActorEnv<A::Msg>) {
-        (self.actor, self.env)
+    pub fn to_parts(self) -> (JoinHandle<Result<()>>, ActorRef<A::Msg>) {
+        (self.actor, self.actor_ref)
     }
 }
 
 #[derive(Debug)]
-pub struct ActorEnv<M> {
+pub struct ActorRef<M> {
     pub self_sender: Sender<M>,
     pub cancellation_token: CancellationToken,
 }
 
-impl<M> Clone for ActorEnv<M> {
+impl<M: Send> ActorRef<M> {
+    pub fn send(&mut self, msg: M) -> impl Future<Output = Result<(), SendError<M>>> + '_ {
+        self.self_sender.send(msg)
+    }
+
+    pub fn cancel(&mut self) {
+        self.cancellation_token.cancel()
+    }
+}
+
+impl<M> Clone for ActorRef<M> {
     fn clone(&self) -> Self {
         Self {
             self_sender: self.self_sender.clone(),
@@ -73,17 +76,18 @@ impl<M> Clone for ActorEnv<M> {
 
 pub trait Actor: Sized + Send + 'static {
     type Msg: Send;
+    type Reply: Send;
 
     fn handle(
         &mut self,
         msg: Self::Msg,
-        env: &ActorEnv<Self::Msg>,
+        env: &ActorRef<Self::Msg>,
     ) -> impl Future<Output = Result<()>> + Send;
 
     fn handle_continuously(
         &mut self,
         mut receiver: Receiver<Self::Msg>,
-        env: ActorEnv<Self::Msg>,
+        env: ActorRef<Self::Msg>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
             loop {
@@ -105,18 +109,18 @@ pub trait Actor: Sized + Send + 'static {
         }
     }
 
-    fn spawn(mut self) -> ActorRef<Self> {
+    fn spawn(mut self) -> ActorHandle<Self> {
         let (self_sender, receiver) = channel(8);
-        let env = ActorEnv {
+        let actor_ref = ActorRef {
             self_sender,
             cancellation_token: CancellationToken::new(),
         };
         let actor = {
-            let env = env.clone();
+            let env = actor_ref.clone();
             spawn(async move { self.handle_continuously(receiver, env).await })
         };
 
-        ActorRef { actor, env }
+        ActorHandle { actor, actor_ref }
     }
 }
 
