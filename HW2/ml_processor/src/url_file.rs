@@ -82,13 +82,7 @@ fn download(url: &str, data_dir: impl AsRef<Path>) -> Result<PathBuf> {
         .with_context(|| format!("File directory `{:?}` contains invalid UTF-8", file_path))?;
 
     debug!("Downloading `{}` to `{}`.", url, file_name);
-    let args = [
-        "-o",
-        file_path_str,
-        "--check-certificate=false",
-        "-c",
-        url,
-    ];
+    let args = ["-o", file_path_str, "--check-certificate=false", "-c", url];
     let mut aria = Command::new("aria2c")
         .args(args)
         .spawn()
