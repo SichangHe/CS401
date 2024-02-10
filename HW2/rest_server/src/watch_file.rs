@@ -1,24 +1,25 @@
 use notify::{recommended_watcher, Event, RecommendedWatcher, Watcher};
 
+use self::read_rules::{RuleServer, RuleServerMsg};
+
 use super::*;
 
-#[derive(Debug)]
 pub struct FileWatcher {
     path: PathBuf,
     watcher: Option<RecommendedWatcher>,
-    query_sender: Sender<QueryServerMsg>,
+    server_ref: Ref<RuleServer>,
 }
 
 impl FileWatcher {
-    pub fn new(path: PathBuf, query_sender: Sender<QueryServerMsg>) -> Self {
+    pub fn new(path: PathBuf, server_ref: Ref<RuleServer>) -> Self {
         Self {
             path,
             watcher: None,
-            query_sender,
+            server_ref,
         }
     }
 
-    pub async fn try_start_watcher(&mut self, env: &mut ActorRef<Self>) -> Result<()> {
+    pub async fn try_start_watcher(&mut self, env: &mut Ref<Self>) -> Result<()> {
         let mut event_sender = env.clone();
 
         let mut watcher = recommended_watcher(move |event| {
@@ -38,24 +39,20 @@ impl Actor for FileWatcher {
     type CastMsg = FileWatchEvent;
     type Reply = ();
 
-    async fn init(&mut self, env: &mut ActorRef<Self>) -> Result<()> {
+    async fn init(&mut self, env: &mut Ref<Self>) -> Result<()> {
         env.cast(FileWatchEvent::Init).await?;
         Ok(())
     }
 
     #[instrument(skip(self, msg, env))]
-    async fn handle_cast(&mut self, msg: Self::CastMsg, env: &mut ActorRef<Self>) -> Result<()> {
+    async fn handle_cast(&mut self, msg: Self::CastMsg, env: &mut Ref<Self>) -> Result<()> {
         match msg {
             FileWatchEvent::Event(Ok(event), when) => {
                 let (kind, paths) = (event.kind, event.paths);
                 debug!(?kind, ?paths, "File watcher event.");
 
-                if self
-                    .query_sender
-                    .send(QueryServerMsg::WatchedFileChanged(when))
-                    .await
-                    .is_err()
-                {
+                let file_event = RuleServerMsg::WatchedFileChanged(when);
+                if self.server_ref.cast(file_event).await.is_err() {
                     warn!("File watcher exiting because the query receiver is closed.");
                     env.cancel();
                 }

@@ -1,249 +1,234 @@
 use chrono::NaiveDateTime;
-use itertools::Itertools;
 
 use super::*;
 
 use watch_file::FileWatcher;
 
-#[instrument(skip(data_dir, query_sender, query_receiver))]
-pub async fn rule_query_server(
+pub struct RuleServer {
     data_dir: PathBuf,
-    mut query_sender: Sender<QueryServerMsg>,
-    mut query_receiver: Receiver<QueryServerMsg>,
-) {
-    let checkpoint_path = checkpoint_path(&data_dir);
-    info!(?data_dir, ?checkpoint_path);
+    checkpoint_path: PathBuf,
+    rules_path: PathBuf,
+    file_watcher: Option<(JoinHandle<Result<()>>, Ref<FileWatcher>)>,
+    last_check: Instant,
+    rules_map: Option<Arc<RulesMap>>,
+    timestamp_checked: i64,
+}
 
-    let (file_watcher_handle, mut file_watcher_ref) =
-        FileWatcher::new(data_dir.clone(), query_sender.clone()).spawn();
-
-    let rules_path = rules_path(&data_dir);
-
-    loop {
-        match try_serve_queries(
-            &checkpoint_path,
-            &rules_path,
-            &mut query_receiver,
-            &mut query_sender,
-        )
-        .await
-        {
-            Ok(_) => break,
-            Err(why) => error!(?why, "Failed to serve queries."),
+impl RuleServer {
+    #[instrument]
+    pub fn new(data_dir: PathBuf) -> Self {
+        Self {
+            checkpoint_path: checkpoint_path(&data_dir),
+            rules_path: rules_path(&data_dir),
+            data_dir,
+            file_watcher: None,
+            last_check: Instant::now(),
+            rules_map: None,
+            timestamp_checked: i64::MIN,
         }
-        sleep(FIVE_SECONDS).await;
     }
 
-    file_watcher_ref.cancel();
-
-    let abort_handle = file_watcher_handle.abort_handle();
-    match timeout(FIVE_SECONDS, file_watcher_handle).await {
-        Ok(Ok(_)) => {}
-        Ok(Err(why)) => error!(?why, "File watcher thread exited with error."),
-        Err(_) => {
-            abort_handle.abort();
-            error!("File watcher thread took too long to exit. Aborted.");
-        }
+    pub fn try_spawn_file_watcher(&mut self, env: Ref<Self>) -> Result<()> {
+        let cancellation_token = env.cancellation_token.clone();
+        let file_watcher = FileWatcher::new(self.data_dir.clone(), env);
+        let file_watcher = file_watcher.spawn_with_token(cancellation_token);
+        self.file_watcher = Some(file_watcher);
+        Ok(())
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum QueryServerMsg {
-    Query(Vec<String>, Sender<(Vec<String>, Arc<str>)>),
-    WatchedFileChanged(Instant),
-    NewCheckpoint(i64),
-    NewRules {
-        timestamp: i64,
-        rules_map: Arc<HashMap<Vec<String>, HashSet<String>>>,
-        when: Instant,
-    },
-    ReadRules(Instant),
-    Exit,
-}
+impl Actor for RuleServer {
+    type CallMsg = ();
+    type CastMsg = RuleServerMsg;
+    type Reply = Arc<RulesMap>;
 
-async fn try_serve_queries(
-    checkpoint_path: &Path,
-    rules_path: &Path,
-    query_receiver: &mut Receiver<QueryServerMsg>,
-    query_sender: &mut Sender<QueryServerMsg>,
-) -> Result<()> {
-    let mut last_check = Instant::now();
-    let (mut current_timestamp, mut current_rules_map) = read_rules(checkpoint_path, rules_path)?;
-    let mut timestamp_checked = current_timestamp;
-    let mut data_datetime = NaiveDateTime::from_timestamp_nanos(current_timestamp)
-        .unwrap()
-        .to_string()
-        .into();
+    async fn init(&mut self, env: &mut Ref<Self>) -> Result<()> {
+        env.cast(RuleServerMsg::InitFileWatcher).await?;
+        env.cast(RuleServerMsg::ReadRules(Instant::now())).await?;
+        Ok(())
+    }
 
-    while let Some(message) = query_receiver.recv().await {
-        match message {
-            QueryServerMsg::Query(query, response_sender) => {
-                drop(spawn(answer_query(
-                    query,
-                    Arc::clone(&current_rules_map),
-                    Arc::clone(&data_datetime),
-                    response_sender,
-                )));
-                continue;
-            }
-            QueryServerMsg::WatchedFileChanged(when_changed) if when_changed > last_check => {
-                info!(?when_changed, "File changed.");
-                let checkpoint_path = checkpoint_path.to_owned();
-                let query_sender = query_sender.clone();
-                spawn(async move {
-                    if let Err(why) =
-                        check_checkpoint(&checkpoint_path, current_timestamp, &query_sender).await
-                    {
-                        error!(?why, "Failed to check checkpoint.");
+    #[instrument(skip(self, msg, env))]
+    async fn handle_cast(&mut self, msg: Self::CastMsg, env: &mut Ref<Self>) -> Result<()> {
+        match msg {
+            RuleServerMsg::InitFileWatcher => {
+                if let Err(why) = self.try_spawn_file_watcher(env.clone()) {
+                    error!(?why, "Failed to spawn file watcher, retrying after sleep.");
+
+                    let mut env = env.clone();
+                    drop(spawn(async move {
                         sleep(FIVE_SECONDS).await;
-                        query_sender
-                            .send(QueryServerMsg::WatchedFileChanged(when_changed))
-                            .await
-                            .unwrap();
-                    }
-                });
-            }
-            QueryServerMsg::WatchedFileChanged(_) => {}
-            QueryServerMsg::NewCheckpoint(timestamp) if timestamp > timestamp_checked => {
-                info!(?timestamp, "New checkpoint.");
-                timestamp_checked = timestamp;
-                query_sender
-                    .send(QueryServerMsg::ReadRules(Instant::now()))
-                    .await
-                    .expect("I own an open receiver.");
-            }
-            QueryServerMsg::NewCheckpoint(_) => {}
-            QueryServerMsg::NewRules {
-                timestamp,
-                rules_map,
-                when,
-            } => {
-                if timestamp > current_timestamp {
-                    info!(?timestamp, "New rules.");
-                    current_timestamp = timestamp;
-                    current_rules_map = rules_map;
-                    last_check = when;
-
-                    timestamp_checked = timestamp;
-                    data_datetime = NaiveDateTime::from_timestamp_nanos(current_timestamp)
-                        .unwrap()
-                        .to_string()
-                        .into();
-                    info!(?data_datetime);
+                        env.cast(RuleServerMsg::InitFileWatcher).await
+                    }))
                 }
             }
-            QueryServerMsg::ReadRules(when) if when > last_check => {
-                info!(?when, "Reading rules.");
-                last_check = when;
 
-                let checkpoint_path = checkpoint_path.to_owned();
-                let rules_path = rules_path.to_owned();
-                let query_sender = query_sender.clone();
+            RuleServerMsg::WatchedFileChanged(when) if when > self.last_check => {
+                info!(?when, "File changed.");
+                self.last_check = when;
+                if let Some(rules_map) = &self.rules_map {
+                    drop(spawn(check_checkpoint_or_retry(
+                        self.checkpoint_path.clone(),
+                        rules_map.0,
+                        env.clone(),
+                    )));
+                }
+            }
+            RuleServerMsg::WatchedFileChanged(_) => {}
+
+            RuleServerMsg::NewCheckpoint(timestamp) if timestamp > self.timestamp_checked => {
+                info!(?timestamp, "New checkpoint.");
+                self.timestamp_checked = timestamp;
+                let read_event = RuleServerMsg::ReadRules(Instant::now());
+                _ = env.cast(read_event).await;
+            }
+            RuleServerMsg::NewCheckpoint(_) => {}
+
+            RuleServerMsg::NewRules { rules_map, when } => match self.rules_map.as_ref() {
+                Some(current_map) if rules_map.0 <= current_map.0 => {}
+                _ => {
+                    let new_datetime = &rules_map.2;
+                    info!(?new_datetime, "New rules.");
+
+                    self.timestamp_checked = rules_map.0;
+                    self.rules_map = Some(Arc::new(rules_map));
+                    self.last_check = when;
+                }
+            },
+
+            RuleServerMsg::ReadRules(when) if when > self.last_check => {
+                info!(?when, "Reading rules.");
+                self.last_check = when;
+
+                drop(spawn(update_rules_or_retry(
+                    self.checkpoint_path.clone(),
+                    self.rules_path.clone(),
+                    self.rules_map.as_ref().map_or(i64::MIN, |r| r.0),
+                    env.clone(),
+                )));
+            }
+            RuleServerMsg::ReadRules(_) => {}
+        }
+
+        Ok(())
+    }
+
+    #[instrument(skip(self, msg, env, response_sender))]
+    async fn handle_call(
+        &mut self,
+        msg: Self::CallMsg,
+        env: &mut Ref<Self>,
+        response_sender: oneshot::Sender<Self::Reply>,
+    ) -> Result<()> {
+        match &self.rules_map {
+            Some(rules_map) => _ = response_sender.send(Arc::clone(rules_map)),
+            None => {
+                warn!("Deferring query reply.");
+
+                let mut env = env.clone();
                 drop(spawn(async move {
-                    if let Err(why) = update_rules(
-                        &checkpoint_path,
-                        &rules_path,
-                        current_timestamp,
-                        &query_sender,
-                    )
-                    .await
-                    {
-                        error!(?why, "Failed to update rules.");
-                        let when_fail = Instant::now();
-                        sleep(FIVE_SECONDS).await;
-                        let retry_event = QueryServerMsg::ReadRules(when_fail);
-                        query_sender.send(retry_event).await.unwrap()
-                    }
+                    sleep(FIVE_SECONDS).await;
+                    _ = env.relay_call(msg, response_sender).await;
                 }));
             }
-            QueryServerMsg::ReadRules(_) => {}
-            QueryServerMsg::Exit => {
-                info!("Got exit message.");
-                break;
-            }
         }
-    }
 
-    warn!("Exiting.");
-    Ok(())
+        Ok(())
+    }
 }
 
-async fn check_checkpoint(
+pub struct RulesMap(
+    pub i64,
+    pub HashMap<Vec<String>, HashSet<String>>,
+    pub String,
+);
+
+impl RulesMap {
+    pub fn new(timestamp: i64, rules_map: HashMap<Vec<String>, HashSet<String>>) -> Self {
+        let data_datetime = NaiveDateTime::from_timestamp_nanos(timestamp)
+            .unwrap()
+            .to_string();
+        Self(timestamp, rules_map, data_datetime)
+    }
+}
+
+pub enum RuleServerMsg {
+    InitFileWatcher,
+    WatchedFileChanged(Instant),
+    NewCheckpoint(i64),
+    ReadRules(Instant),
+    NewRules { rules_map: RulesMap, when: Instant },
+}
+
+async fn check_checkpoint_or_retry(
+    checkpoint_path: PathBuf,
+    old_timestamp: i64,
+    mut server_ref: Ref<RuleServer>,
+) {
+    if let Err(why) = try_check_checkpoint(&checkpoint_path, old_timestamp, &mut server_ref).await {
+        error!(?why, "Failed to check checkpoint.");
+
+        let when_failed = Instant::now();
+        sleep(FIVE_SECONDS).await;
+        let retry_event = RuleServerMsg::WatchedFileChanged(when_failed);
+        _ = server_ref.cast(retry_event).await
+    }
+}
+
+async fn try_check_checkpoint(
     checkpoint_path: &Path,
-    current_timestamp: i64,
-    query_sender: &Sender<QueryServerMsg>,
+    old_timestamp: i64,
+    server_ref: &mut Ref<RuleServer>,
 ) -> Result<()> {
     let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
-    if timestamp > current_timestamp {
-        _ = query_sender
-            .clone()
-            .send(QueryServerMsg::NewCheckpoint(timestamp))
-            .await
+    if timestamp > old_timestamp {
+        let checkpoint_event = RuleServerMsg::NewCheckpoint(timestamp);
+        _ = server_ref.cast(checkpoint_event).await
     }
 
     Ok(())
 }
 
-async fn update_rules(
+async fn update_rules_or_retry(
+    checkpoint_path: PathBuf,
+    rules_path: PathBuf,
+    old_timestamp: i64,
+    mut server_ref: Ref<RuleServer>,
+) {
+    if let Err(why) = try_update_rules(
+        &checkpoint_path,
+        &rules_path,
+        old_timestamp,
+        &mut server_ref,
+    )
+    .await
+    {
+        error!(?why, "Failed to update rules.");
+
+        let when_fail = Instant::now();
+        sleep(FIVE_SECONDS).await;
+        let retry_event = RuleServerMsg::ReadRules(when_fail);
+        _ = server_ref.cast(retry_event).await
+    }
+}
+
+async fn try_update_rules(
     checkpoint_path: &Path,
     rules_path: &Path,
     old_timestamp: i64,
-    query_sender: &Sender<QueryServerMsg>,
+    server_ref: &mut Ref<RuleServer>,
 ) -> Result<()> {
     let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
-    if timestamp != old_timestamp {
-        let (timestamp, rules_map) =
-            read_rules(checkpoint_path, rules_path).context("Failed to read rules from file.")?;
-        _ = query_sender
-            .clone()
-            .send(QueryServerMsg::NewRules {
-                timestamp,
-                rules_map,
-                when: Instant::now(),
-            })
-            .await
+    if timestamp > old_timestamp {
+        let when = Instant::now();
+        let rules_map = make_rules_map(rules_path).context("Read rules from file")?;
+        let new_rules_event = RuleServerMsg::NewRules {
+            rules_map: RulesMap::new(timestamp, rules_map),
+            when,
+        };
+        _ = server_ref.cast(new_rules_event).await;
     }
     Ok(())
-}
-
-fn read_rules(
-    checkpoint_path: &Path,
-    rules_path: &Path,
-) -> Result<(i64, Arc<HashMap<Vec<String>, HashSet<String>>>)> {
-    let timestamp = checkpoint_timestamp(checkpoint_path).context("Checkpoint timestamp")?;
-    let rules_map = make_rules_map(rules_path).context("Read rules from file")?;
-    let rules_map = Arc::new(rules_map);
-    Ok((timestamp, rules_map))
-}
-
-#[instrument(skip(rules_map, response_sender))]
-async fn answer_query(
-    mut query: Vec<String>,
-    rules_map: Arc<HashMap<Vec<String>, HashSet<String>>>,
-    datetime: Arc<str>,
-    response_sender: Sender<(Vec<String>, Arc<str>)>,
-) {
-    query.sort_unstable();
-    query.dedup();
-    let mut response = HashSet::with_capacity(MAX_LENGTH * 2);
-
-    'combinations: for length in (1..(query.len().min(MAX_LENGTH) + 1)).rev() {
-        for mut combination in query.iter().cloned().combinations(length) {
-            combination.sort_unstable();
-            if let Some(predictions) = rules_map.get(&combination) {
-                response.extend(predictions);
-                if response.len() >= MAX_LENGTH {
-                    debug!(length, "Got enough predictions.");
-                    break 'combinations;
-                }
-            }
-        }
-    }
-
-    debug!("Sending response.");
-    _ = response_sender
-        .send((response.into_iter().cloned().collect(), datetime))
-        .await;
 }
 
 fn checkpoint_timestamp(checkpoint_path: impl AsRef<Path>) -> Result<i64> {

@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 use anyhow::{Context, Result};
 use apriori::Rule;
-use read_rules::rule_query_server;
+use read_rules::RuleServer;
 use serde::{Deserialize, Serialize};
 use shared::*;
 use std::{
@@ -19,14 +19,13 @@ use tokio::{
         oneshot,
     },
     task::JoinHandle,
-    time::{sleep, timeout},
+    time::sleep,
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
 
-use actor::{Actor, Ref as ActorRef};
-use read_rules::QueryServerMsg;
-use serve::RecommendationResponse;
+use actor::{Actor, Ref};
+// use serve::RecommendationResponse;
 
 pub mod actor;
 mod read_rules;
@@ -38,22 +37,19 @@ const FIVE_SECONDS: Duration = Duration::from_secs(5);
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]
 pub async fn run(data_dir: impl AsRef<Path>, port: &str) -> Result<()> {
-    let (query_sender, query_receiver) = channel(16);
-    let rule_query_thread = spawn(rule_query_server(
-        data_dir.as_ref().into(),
-        query_sender.clone(),
-        query_receiver,
-    ));
+    let rule_query_server = RuleServer::new(data_dir.as_ref().into());
+    let (query_server_handle, mut query_server_ref) = rule_query_server.spawn();
 
     // _testing(query_sender.clone()).await?;
-    serve::serve(port, query_sender.clone()).await?;
+    serve::serve(port, query_server_ref.clone()).await?;
 
-    query_sender.send(QueryServerMsg::Exit).await?;
-    rule_query_thread.await?;
+    query_server_ref.cancel();
+    query_server_handle.await??;
 
     Ok(())
 }
 
+/*
 async fn _testing(query_sender: Sender<QueryServerMsg>) -> Result<()> {
     let (response_sender, mut response_receiver) = channel(1);
     let mock_query = vec![
@@ -73,3 +69,4 @@ async fn _testing(query_sender: Sender<QueryServerMsg>) -> Result<()> {
 
     Ok(())
 }
+*/

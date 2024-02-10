@@ -3,6 +3,9 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use itertools::Itertools;
+
+use self::read_rules::RulesMap;
 
 use super::*;
 
@@ -10,12 +13,12 @@ mod error;
 
 use error::AppError;
 
-#[instrument(skip(query_sender))]
-pub async fn serve(port: &str, query_sender: Sender<QueryServerMsg>) -> Result<()> {
+#[instrument(skip(query_server_ref))]
+pub async fn serve(port: &str, query_server_ref: Ref<RuleServer>) -> Result<()> {
     info!("Starting server.");
     let app = Router::new().route("/", get(home_handler)).route(
         "/api/recommend",
-        post(|request| async move { query_handler(request, query_sender.clone()).await }),
+        post(|request| async move { query_handler(request, query_server_ref.clone()).await }),
     );
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     axum::serve(listener, app).await?;
@@ -29,17 +32,13 @@ async fn home_handler() -> &'static str {
 
 async fn query_handler(
     Json(request): Json<RecommendationRequest>,
-    query_sender: Sender<QueryServerMsg>,
+    mut query_server_ref: Ref<RuleServer>,
 ) -> Result<Json<RecommendationResponse>, AppError> {
     info!(?request);
-    let (response_sender, mut response_receiver) = channel(1);
-    let query = QueryServerMsg::Query(request.songs, response_sender);
-    query_sender.send(query).await?;
-    let (playlist_ids, datetime) = response_receiver
-        .recv()
-        .await
-        .context("No response from query server")?;
-    let response = RecommendationResponse::new(playlist_ids, datetime.to_string());
+    let rules_map = query_server_ref.call(()).await?;
+
+    let songs = recommend_songs(request.songs, &rules_map);
+    let response = RecommendationResponse::new(songs, rules_map.2.to_string());
     Ok(Json(response))
 }
 
@@ -63,4 +62,27 @@ impl RecommendationResponse {
             model_date,
         }
     }
+}
+
+#[instrument(skip(rules_map))]
+fn recommend_songs(mut query: Vec<String>, rules_map: &RulesMap) -> Vec<String> {
+    query.sort_unstable();
+    query.dedup();
+    let mut response = HashSet::with_capacity(MAX_LENGTH * 2);
+
+    'combinations: for length in (1..(query.len().min(MAX_LENGTH) + 1)).rev() {
+        for mut combination in query.iter().cloned().combinations(length) {
+            combination.sort_unstable();
+            if let Some(predictions) = rules_map.1.get(&combination) {
+                response.extend(predictions);
+                if response.len() >= MAX_LENGTH {
+                    debug!(length, "Got enough predictions.");
+                    break 'combinations;
+                }
+            }
+        }
+    }
+
+    debug!("Sending response.");
+    response.into_iter().cloned().collect()
 }

@@ -39,6 +39,14 @@ impl<A: Actor> Ref<A> {
             .context("Failed to receive actor's reply")
     }
 
+    pub fn relay_call(
+        &mut self,
+        msg: A::CallMsg,
+        reply_sender: oneshot::Sender<A::Reply>,
+    ) -> impl Future<Output = Result<(), SendError<Msg<A>>>> + '_ {
+        self.msg_sender.send(Msg::Call(msg, reply_sender))
+    }
+
     /// Cancel the actor referred to.
     pub fn cancel(&mut self) {
         self.cancellation_token.cancel()
@@ -126,8 +134,24 @@ pub trait Actor: Sized + Send + 'static {
     }
 
     fn spawn(self) -> (JoinHandle<Result<()>>, Ref<Self>) {
-        let (msg_sender, msg_receiver) = channel(8);
         let cancellation_token = CancellationToken::new();
+        self.spawn_with_token(cancellation_token)
+    }
+
+    fn spawn_with_channel(
+        self,
+        msg_sender: Sender<Msg<Self>>,
+        msg_receiver: Receiver<Msg<Self>>,
+    ) -> (JoinHandle<Result<()>>, Ref<Self>) {
+        let cancellation_token = CancellationToken::new();
+        self.spawn_with_channel_and_token(msg_sender, msg_receiver, cancellation_token)
+    }
+
+    fn spawn_with_token(
+        self,
+        cancellation_token: CancellationToken,
+    ) -> (JoinHandle<Result<()>>, Ref<Self>) {
+        let (msg_sender, msg_receiver) = channel(8);
         self.spawn_with_channel_and_token(msg_sender, msg_receiver, cancellation_token)
     }
 
