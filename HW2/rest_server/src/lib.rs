@@ -7,26 +7,15 @@ use shared::*;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    future::Future,
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{
-    main, select, spawn,
-    sync::{
-        mpsc::{channel, error::SendError, Receiver, Sender},
-        oneshot,
-    },
-    task::JoinHandle,
-    time::sleep,
-};
-use tokio_util::sync::CancellationToken;
+use tokio::{main, spawn, sync::oneshot, task::JoinHandle, time::sleep};
 use tracing::{debug, error, info, instrument, warn};
 
-use actor::{Actor, Ref};
+use tokio_gen_server::actor::{Actor, Ref};
 
-pub mod actor;
 mod read_rules;
 mod serve;
 mod watch_file;
