@@ -29,7 +29,7 @@ impl RuleServer {
     }
 
     pub fn try_spawn_file_watcher(&mut self, env: Ref<Self>) -> Result<()> {
-        let cancellation_token = env.cancellation_token.clone();
+        let cancellation_token = env.cancellation_token.child_token();
         let file_watcher = FileWatcher::new(self.data_dir.clone(), env);
         let file_watcher = file_watcher.spawn_with_token(cancellation_token);
         self.file_watcher = Some(file_watcher);
@@ -84,18 +84,6 @@ impl Actor for RuleServer {
             }
             RuleServerMsg::NewCheckpoint(_) => {}
 
-            RuleServerMsg::NewRules { rules_map, when } => match self.rules_map.as_ref() {
-                Some(current_map) if rules_map.0 <= current_map.0 => {}
-                _ => {
-                    let new_datetime = &rules_map.2;
-                    info!(?new_datetime, "New rules.");
-
-                    self.timestamp_checked = rules_map.0;
-                    self.rules_map = Some(Arc::new(rules_map));
-                    self.last_check = when;
-                }
-            },
-
             RuleServerMsg::ReadRules(when) if when > self.last_check => {
                 info!(?when, "Reading rules.");
                 self.last_check = when;
@@ -108,6 +96,18 @@ impl Actor for RuleServer {
                 )));
             }
             RuleServerMsg::ReadRules(_) => {}
+
+            RuleServerMsg::NewRules { rules_map, when } => match self.rules_map.as_ref() {
+                Some(current_map) if rules_map.0 <= current_map.0 => {}
+                _ => {
+                    let new_datetime = &rules_map.2;
+                    info!(?new_datetime, "New rules.");
+
+                    self.timestamp_checked = rules_map.0;
+                    self.rules_map = Some(Arc::new(rules_map));
+                    self.last_check = when;
+                }
+            },
         }
 
         Ok(())
