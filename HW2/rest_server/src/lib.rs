@@ -24,139 +24,16 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
 
+use actor::{Actor, Msg as ActorMsg, Ref as ActorRef};
 use read_rules::QueryServerMsg;
 use serve::RecommendationResponse;
 
+mod actor;
 mod read_rules;
 mod serve;
 mod watch_file;
 
 const FIVE_SECONDS: Duration = Duration::from_secs(5);
-
-#[derive(Debug)]
-pub struct ActorRef<A: Actor> {
-    pub msg_sender: Sender<ActorMsg<A>>,
-    pub cancellation_token: CancellationToken,
-}
-
-impl<A: Actor> ActorRef<A> {
-    pub fn cast(
-        &mut self,
-        msg: A::CastMsg,
-    ) -> impl Future<Output = Result<(), SendError<ActorMsg<A>>>> + '_ {
-        self.msg_sender.send(ActorMsg::Cast(msg))
-    }
-
-    pub async fn call(&mut self, msg: A::CallMsg) -> Result<A::Reply> {
-        let (reply_sender, reply_receiver) = oneshot::channel();
-        self.msg_sender
-            .send(ActorMsg::Call(msg, reply_sender))
-            .await
-            .context("Failed to send call to actor")?;
-        reply_receiver
-            .await
-            .context("Failed to receive actor's reply")
-    }
-
-    pub fn cancel(&mut self) {
-        self.cancellation_token.cancel()
-    }
-}
-
-impl<A: Actor> Clone for ActorRef<A> {
-    fn clone(&self) -> Self {
-        Self {
-            msg_sender: self.msg_sender.clone(),
-            cancellation_token: self.cancellation_token.clone(),
-        }
-    }
-}
-
-pub enum ActorMsg<A: Actor> {
-    Call(A::CallMsg, oneshot::Sender<A::Reply>),
-    Cast(A::CastMsg),
-}
-
-pub trait Actor: Sized + Send + 'static {
-    type CallMsg: Send + Sync;
-    type CastMsg: Send + Sync;
-    type Reply: Send;
-
-    fn handle_cast(
-        &mut self,
-        msg: Self::CastMsg,
-        env: &ActorRef<Self>,
-    ) -> impl Future<Output = Result<()>> + Send;
-
-    fn handle_call(
-        &mut self,
-        msg: Self::CallMsg,
-        env: &ActorRef<Self>,
-        reply_sender: oneshot::Sender<Self::Reply>,
-    ) -> impl Future<Output = Result<()>> + Send;
-
-    fn handle_call_or_cast(
-        &mut self,
-        msg: ActorMsg<Self>,
-        env: &ActorRef<Self>,
-    ) -> impl Future<Output = Result<()>> + Send {
-        async move {
-            match msg {
-                ActorMsg::Call(msg, reply_sender) => self.handle_call(msg, env, reply_sender).await,
-                ActorMsg::Cast(msg) => self.handle_cast(msg, env).await,
-            }
-        }
-    }
-
-    fn handle_continuously(
-        &mut self,
-        mut receiver: Receiver<ActorMsg<Self>>,
-        env: ActorRef<Self>,
-    ) -> impl Future<Output = Result<()>> + Send {
-        async move {
-            loop {
-                let maybe_msg = select! {
-                    m = receiver.recv() => m,
-                    () = env.cancellation_token.cancelled() => return Ok(()),
-                };
-
-                let msg = match maybe_msg {
-                    Some(m) => m,
-                    None => return Ok(()),
-                };
-
-                select! {
-                    maybe_ok = self.handle_call_or_cast(msg, &env) => maybe_ok,
-                    () = env.cancellation_token.cancelled() => return Ok(()),
-                }?;
-            }
-        }
-    }
-
-    fn spawn(self) -> (JoinHandle<Result<()>>, ActorRef<Self>) {
-        let (msg_sender, msg_receiver) = channel(8);
-        let cancellation_token = CancellationToken::new();
-        self.spawn_with_channel_and_token(msg_sender, msg_receiver, cancellation_token)
-    }
-
-    fn spawn_with_channel_and_token(
-        mut self,
-        msg_sender: Sender<ActorMsg<Self>>,
-        msg_receiver: Receiver<ActorMsg<Self>>,
-        cancellation_token: CancellationToken,
-    ) -> (JoinHandle<Result<()>>, ActorRef<Self>) {
-        let actor_ref = ActorRef {
-            msg_sender,
-            cancellation_token,
-        };
-        let handle = {
-            let env = actor_ref.clone();
-            spawn(async move { self.handle_continuously(msg_receiver, env).await })
-        };
-
-        (handle, actor_ref)
-    }
-}
 
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]
