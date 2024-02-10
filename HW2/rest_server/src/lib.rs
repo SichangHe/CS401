@@ -33,25 +33,6 @@ mod watch_file;
 
 const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
-pub struct ActorHandle<A: Actor> {
-    actor: JoinHandle<Result<()>>,
-    actor_ref: ActorRef<A>,
-}
-
-impl<A: Actor> ActorHandle<A> {
-    pub fn actor_ref(&self) -> &ActorRef<A> {
-        &self.actor_ref
-    }
-
-    pub fn abort(self) {
-        self.actor.abort()
-    }
-
-    pub fn to_parts(self) -> (JoinHandle<Result<()>>, ActorRef<A>) {
-        (self.actor, self.actor_ref)
-    }
-}
-
 #[derive(Debug)]
 pub struct ActorRef<A: Actor> {
     pub self_sender: Sender<ActorMsg<A>>,
@@ -152,19 +133,19 @@ pub trait Actor: Sized + Send + 'static {
         }
     }
 
-    fn spawn(mut self) -> ActorHandle<Self> {
+    fn spawn(mut self) -> (JoinHandle<Result<()>>, ActorRef<Self>) {
         let (self_sender, actor_receiver) = channel(8);
 
         let actor_ref = ActorRef {
             self_sender,
             cancellation_token: CancellationToken::new(),
         };
-        let actor = {
+        let handle = {
             let env = actor_ref.clone();
             spawn(async move { self.handle_continuously(actor_receiver, env).await })
         };
 
-        ActorHandle { actor, actor_ref }
+        (handle, actor_ref)
     }
 }
 
