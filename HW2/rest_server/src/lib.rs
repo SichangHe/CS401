@@ -35,7 +35,7 @@ const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
 #[derive(Debug)]
 pub struct ActorRef<A: Actor> {
-    pub self_sender: Sender<ActorMsg<A>>,
+    pub msg_sender: Sender<ActorMsg<A>>,
     pub cancellation_token: CancellationToken,
 }
 
@@ -44,12 +44,12 @@ impl<A: Actor> ActorRef<A> {
         &mut self,
         msg: A::CastMsg,
     ) -> impl Future<Output = Result<(), SendError<ActorMsg<A>>>> + '_ {
-        self.self_sender.send(ActorMsg::Cast(msg))
+        self.msg_sender.send(ActorMsg::Cast(msg))
     }
 
     pub async fn call(&mut self, msg: A::CallMsg) -> Result<A::Reply> {
         let (reply_sender, reply_receiver) = oneshot::channel();
-        self.self_sender
+        self.msg_sender
             .send(ActorMsg::Call(msg, reply_sender))
             .await
             .context("Failed to send call to actor")?;
@@ -66,7 +66,7 @@ impl<A: Actor> ActorRef<A> {
 impl<A: Actor> Clone for ActorRef<A> {
     fn clone(&self) -> Self {
         Self {
-            self_sender: self.self_sender.clone(),
+            msg_sender: self.msg_sender.clone(),
             cancellation_token: self.cancellation_token.clone(),
         }
     }
@@ -133,16 +133,25 @@ pub trait Actor: Sized + Send + 'static {
         }
     }
 
-    fn spawn(mut self) -> (JoinHandle<Result<()>>, ActorRef<Self>) {
-        let (self_sender, actor_receiver) = channel(8);
+    fn spawn(self) -> (JoinHandle<Result<()>>, ActorRef<Self>) {
+        let (msg_sender, msg_receiver) = channel(8);
+        let cancellation_token = CancellationToken::new();
+        self.spawn_with_channel_and_token(msg_sender, msg_receiver, cancellation_token)
+    }
 
+    fn spawn_with_channel_and_token(
+        mut self,
+        msg_sender: Sender<ActorMsg<Self>>,
+        msg_receiver: Receiver<ActorMsg<Self>>,
+        cancellation_token: CancellationToken,
+    ) -> (JoinHandle<Result<()>>, ActorRef<Self>) {
         let actor_ref = ActorRef {
-            self_sender,
-            cancellation_token: CancellationToken::new(),
+            msg_sender,
+            cancellation_token,
         };
         let handle = {
             let env = actor_ref.clone();
-            spawn(async move { self.handle_continuously(actor_receiver, env).await })
+            spawn(async move { self.handle_continuously(msg_receiver, env).await })
         };
 
         (handle, actor_ref)
