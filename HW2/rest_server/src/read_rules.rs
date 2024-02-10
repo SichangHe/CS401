@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 use super::*;
 
-use watch_file::keep_watching_file;
+use watch_file::FileWatcher;
 
 #[instrument(skip(data_dir, query_sender, query_receiver))]
 pub async fn rule_query_server(
@@ -13,15 +13,9 @@ pub async fn rule_query_server(
 ) {
     let checkpoint_path = checkpoint_path(&data_dir);
     info!(?data_dir, ?checkpoint_path);
-    let (fs_exit_sender, fs_watch_thread) = {
-        let (exit_sender, exit_receiver) = channel(1);
-        let thread = spawn(keep_watching_file(
-            checkpoint_path.clone(),
-            query_sender.clone(),
-            exit_receiver,
-        ));
-        (exit_sender, thread)
-    };
+
+    let (file_watcher_handle, mut file_watcher_ref) =
+        FileWatcher::new(data_dir.clone(), query_sender.clone()).spawn();
 
     let rules_path = rules_path(&data_dir);
 
@@ -40,9 +34,10 @@ pub async fn rule_query_server(
         sleep(FIVE_SECONDS).await;
     }
 
-    _ = fs_exit_sender.send(()).await;
-    let abort_handle = fs_watch_thread.abort_handle();
-    match timeout(FIVE_SECONDS, fs_watch_thread).await {
+    file_watcher_ref.cancel();
+
+    let abort_handle = file_watcher_handle.abort_handle();
+    match timeout(FIVE_SECONDS, file_watcher_handle).await {
         Ok(Ok(_)) => {}
         Ok(Err(why)) => error!(?why, "File watcher thread exited with error."),
         Err(_) => {

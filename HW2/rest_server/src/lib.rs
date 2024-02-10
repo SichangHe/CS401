@@ -24,11 +24,11 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
 
-use actor::{Actor, Msg as ActorMsg, Ref as ActorRef};
+use actor::{Actor, Ref as ActorRef};
 use read_rules::QueryServerMsg;
 use serve::RecommendationResponse;
 
-mod actor;
+pub mod actor;
 mod read_rules;
 mod serve;
 mod watch_file;

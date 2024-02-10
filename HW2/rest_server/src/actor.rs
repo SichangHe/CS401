@@ -14,6 +14,10 @@ impl<A: Actor> Ref<A> {
         self.msg_sender.send(Msg::Cast(msg))
     }
 
+    pub fn blocking_cast(&mut self, msg: A::CastMsg) -> Result<(), SendError<Msg<A>>> {
+        self.msg_sender.blocking_send(Msg::Cast(msg))
+    }
+
     pub async fn call(&mut self, msg: A::CallMsg) -> Result<A::Reply> {
         let (reply_sender, reply_receiver) = oneshot::channel();
         self.msg_sender
@@ -25,6 +29,17 @@ impl<A: Actor> Ref<A> {
             .context("Failed to receive actor's reply")
     }
 
+    pub fn blocking_call(&mut self, msg: A::CallMsg) -> Result<A::Reply> {
+        let (reply_sender, reply_receiver) = oneshot::channel();
+        self.msg_sender
+            .blocking_send(Msg::Call(msg, reply_sender))
+            .context("Failed to send call to actor")?;
+        reply_receiver
+            .blocking_recv()
+            .context("Failed to receive actor's reply")
+    }
+
+    /// Cancel the actor referred to.
     pub fn cancel(&mut self) {
         self.cancellation_token.cancel()
     }
@@ -49,23 +64,31 @@ pub trait Actor: Sized + Send + 'static {
     type CastMsg: Send + Sync;
     type Reply: Send;
 
+    fn init(&mut self, _env: &mut Ref<Self>) -> impl Future<Output = Result<()>> + Send {
+        async { Ok(()) }
+    }
+
     fn handle_cast(
         &mut self,
-        msg: Self::CastMsg,
-        env: &Ref<Self>,
-    ) -> impl Future<Output = Result<()>> + Send;
+        _msg: Self::CastMsg,
+        _env: &mut Ref<Self>,
+    ) -> impl Future<Output = Result<()>> + Send {
+        async { Ok(()) }
+    }
 
     fn handle_call(
         &mut self,
-        msg: Self::CallMsg,
-        env: &Ref<Self>,
-        reply_sender: oneshot::Sender<Self::Reply>,
-    ) -> impl Future<Output = Result<()>> + Send;
+        _msg: Self::CallMsg,
+        _env: &mut Ref<Self>,
+        _reply_sender: oneshot::Sender<Self::Reply>,
+    ) -> impl Future<Output = Result<()>> + Send {
+        async { Ok(()) }
+    }
 
     fn handle_call_or_cast(
         &mut self,
         msg: Msg<Self>,
-        env: &Ref<Self>,
+        env: &mut Ref<Self>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
             match msg {
@@ -78,13 +101,15 @@ pub trait Actor: Sized + Send + 'static {
     fn handle_continuously(
         &mut self,
         mut receiver: Receiver<Msg<Self>>,
-        env: Ref<Self>,
+        mut env: Ref<Self>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
+            let cancellation_token = env.cancellation_token.clone();
+
             loop {
                 let maybe_msg = select! {
                     m = receiver.recv() => m,
-                    () = env.cancellation_token.cancelled() => return Ok(()),
+                    () = cancellation_token.cancelled() => return Ok(()),
                 };
 
                 let msg = match maybe_msg {
@@ -93,8 +118,8 @@ pub trait Actor: Sized + Send + 'static {
                 };
 
                 select! {
-                    maybe_ok = self.handle_call_or_cast(msg, &env) => maybe_ok,
-                    () = env.cancellation_token.cancelled() => return Ok(()),
+                    maybe_ok = self.handle_call_or_cast(msg, &mut env) => maybe_ok,
+                    () = cancellation_token.cancelled() => return Ok(()),
                 }?;
             }
         }
@@ -117,8 +142,11 @@ pub trait Actor: Sized + Send + 'static {
             cancellation_token,
         };
         let handle = {
-            let env = actor_ref.clone();
-            spawn(async move { self.handle_continuously(msg_receiver, env).await })
+            let mut env = actor_ref.clone();
+            spawn(async move {
+                self.init(&mut env).await?;
+                self.handle_continuously(msg_receiver, env).await
+            })
         };
 
         (handle, actor_ref)
