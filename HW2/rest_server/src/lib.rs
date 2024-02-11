@@ -14,7 +14,7 @@ use std::{
 use tokio::{main, spawn, sync::oneshot, task::JoinHandle, time::sleep};
 use tracing::{debug, error, info, instrument, warn};
 
-use tokio_gen_server::actor::{Actor, Ref};
+use tokio_gen_server::actor::*;
 
 mod read_rules;
 mod serve;
