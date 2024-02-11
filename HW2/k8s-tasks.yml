@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: cs401-sh623-hw2-ml
-        image: sssstevenhe/cs401-hw2-ml-processor:0.1.3
+        image: sssstevenhe/cs401-hw2-ml-processor:0.1.4
         volumeMounts:
         - mountPath: "/ml-data"
           name: ml-data-mnt
@@ -57,7 +57,7 @@ spec:
     spec:
       containers:
       - name: cs401-sh623-hw2-rest-server
-        image: sssstevenhe/cs401-hw2-rest-server:0.1.0
+        image: sssstevenhe/cs401-hw2-rest-server:0.2.0
         ports:
         - containerPort: 3000
         volumeMounts:
