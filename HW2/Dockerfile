@@ -32,27 +32,11 @@ RUN --mount=type=bind,source=ml_processor,target=ml_processor \
     cp target/release/ml_processor /bin/ml_processor
 
 ################################################################################
-FROM debian:bookworm-slim AS template
-
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
-
-################################################################################
 # Create a new stage for running rest_server that contains the minimal
 # runtime dependencies for the application. This often uses a different base
 # image from the build stage where the necessary files are copied from the build
 # stage.
-FROM template AS rest_server
-USER appuser
+FROM debian:bookworm-slim AS rest_server
 
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/rest_server /bin/
@@ -65,7 +49,7 @@ CMD ["/bin/rest_server"]
 
 ################################################################################
 # Create a new stage for running ml_processor.
-FROM template AS ml_processor
+FROM debian:bookworm-slim AS ml_processor
 
 # Get `aria2c` for downloading the model.
 RUN --mount=type=cache,target=/var/cache/apt/ \
@@ -74,7 +58,6 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
     apt update && \
     apt install -y aria2
 
-USER appuser
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/ml_processor /bin/
 
