@@ -4,11 +4,15 @@
 
 ## Dataset
 
-The dataset sample is available on the cluster at `/home/datasets/spotify-sample/`.
+The datasets used are hosted [here](https://homepages.dcc.ufmg.br/~cunha/hosted/cloudcomp-2023s2-datasets/).
+
+Each dataset contains 500 playlists that contain songs.
+
+<!-- The dataset sample is available on the cluster at `/home/datasets/spotify-sample/`.
 
 - `playlists-sample-ds1.csv` and `playlists-sample-ds2.csv`: 500 playlist each.
     - `playlists-sample-ds2.csv`: used to update the model.
-- `song.csv` songs in the playlist.
+- `song.csv` songs in the playlist. -->
 
 <!-- The dataset sample is available on the cluster at `/home/datasets/spotify/`.
 
@@ -20,20 +24,38 @@ The dataset sample is available on the cluster at `/home/datasets/spotify-sample
 
 ### 1. Playlist Rules Generator
 
-Frequent Itemset Mining.
+The ML Processor module runs a Frequent Itemset Mining algorithm to generate
+rules for song recommendations.
 
-Takes pointer to the dataset from input.
+The ML Processor uses the *data directory* specified in `DATA_DIR` to store
+both the dataset and generated artifacts.
+It takes an URL to the dataset from environment variable `DATASET_URL`,
+and downloads the dataset.
+It then uses [the Aprirori algorithm](https://en.wikipedia.org/wiki/Apriori_algorithm)
+in [this Rust implementation found on GitHub](https://github.com/remykarem/apriori-rs)
+to generate the recommendation rules.
+The rules are encoded using [`bincode`](https://github.com/bincode-org/bincode),
+and saved to the *rules file* named `rules.bincode` in the *data directory*.
 
-Uses a checkpoint file `ml_processor_checkpoint.txt` to store:
+To avoid regenerating the same rules every time the ML Processor is run,
+after generating the rules,
+it records a *checkpoint file* named `ml_processor_checkpoint.txt` that contains:
 
+```xml
+<ML processor version> <dataset URL used> <generation time in nanoseconds since UNIX epoch>
 ```
-<ML processor version> <dataset URL used> <nanoseconds of last generation since UNIX epoch>
-```
+
+When the ML Processor is run,
+it first checks the *checkpoint file* to see if the current rules already are
+generated using the same ML Processor version and the same dataset.
+If not, it proceeds to generate the rules.
+The generation time is for the REST API Server to know when the rules were
+last updated.
 
 ### 2. REST API Server
 
-POST endpoint at `/api/recommend`, port 52004.
-A request contains a list of songs.
+The REST API server exposes a POST endpoint at `/api/recommend`, port 52004.
+A request contains a list of songs:
 
 ```jsonc
 {
@@ -43,17 +65,40 @@ A request contains a list of songs.
 }
 ```
 
-The response contains playlist recommendations.
+The response contains song recommendations:
+
+<!-- TODO: Update the implementation to sync. -->
 
 ```jsonc
 {
-    "playlist_ids": [
-        "jfwioefjwoiefwjo",
-    ], // playlist IDs that the user may enjoy
-    "version": "vx.x.x", // version of the code running
-    "model_date": "yyyy-mm-dd" // date when ML model was last updated
+    "songs": [
+        "jfwioefjwoiefwjo", // …
+    ],
+    "version": "x.x.x", // version of the code running
+    "model_date": "YYYY-MM-dd HH:mm:ss.SSSSSS" // date when recommendation rules were last updated
 }
 ```
+
+The server is implemented in three parts.
+
+- The HTTP server is implemented using [Axum](https://github.com/tokio-rs/axum),
+    and serves the REST API.
+    Per request, it requests the rule server for recommendation rules.
+- The file watcher uses [`notify`](https://github.com/notify-rs/notify) to
+    watch the *data directory* specified in environment variable `DATA_DIR` for
+    file events, and notifies the rule server when events occur.
+    It also implements retry logic in case that `notify` fails.
+- The rule server reads the *rules file* and stores the rules in memory.
+    Upon events from the file watcher,
+    the rule server checks the *checkpoint file* to verify that
+    the generation time is newer than the recorded one,
+    and reads the rules from the *rules file* if updated.
+
+I used a [GenServer](https://hexdocs.pm/elixir/GenServer.html)-like actor
+model to manage interactions between the three parties so all the interactions
+are fully asynchronous and non-blocking.
+The actor library is extracted into
+[the `tokio_gen_server` crate](https://crates.io/crates/tokio_gen_server).
 
 ### 3. REST API Client
 
