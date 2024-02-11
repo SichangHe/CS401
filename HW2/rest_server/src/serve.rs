@@ -38,7 +38,7 @@ async fn query_handler(
     let rules_map = query_server_ref.call(()).await?;
 
     let songs = recommend_songs(request.songs, &rules_map);
-    let response = RecommendationResponse::new(songs, rules_map.2.to_string());
+    let response = RecommendationResponse::new(songs, rules_map.2.clone());
     Ok(Json(response))
 }
 
@@ -49,15 +49,15 @@ pub struct RecommendationRequest {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RecommendationResponse {
-    pub playlist_ids: Vec<String>,
+    pub songs: Vec<String>,
     pub version: &'static str,
     pub model_date: String,
 }
 
 impl RecommendationResponse {
-    pub fn new(playlist_ids: Vec<String>, model_date: String) -> Self {
+    pub fn new(songs: Vec<String>, model_date: String) -> Self {
         Self {
-            playlist_ids,
+            songs,
             version: crate_version!(),
             model_date,
         }

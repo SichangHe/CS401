@@ -77,7 +77,7 @@ impl Actor for FileWatcher {
 
                     let mut env = env.clone();
                     drop(spawn(async move {
-                        sleep(FIVE_SECONDS).await;
+                        sleep(ONE_SECOND).await;
                         _ = env.cast(FileWatchEvent::Init).await
                     }));
                 }

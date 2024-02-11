@@ -57,7 +57,7 @@ impl Actor for RuleServer {
 
                     let mut env = env.clone();
                     drop(spawn(async move {
-                        sleep(FIVE_SECONDS).await;
+                        sleep(ONE_SECOND).await;
                         env.cast(RuleServerMsg::InitFileWatcher).await
                     }))
                 }
@@ -127,7 +127,7 @@ impl Actor for RuleServer {
 
                 let mut env = env.clone();
                 drop(spawn(async move {
-                    sleep(FIVE_SECONDS).await;
+                    sleep(ONE_SECOND).await;
                     _ = env.relay_call(msg, response_sender).await;
                 }));
             }
@@ -169,7 +169,7 @@ async fn check_checkpoint_or_retry(
         error!(?why, "Failed to check checkpoint.");
 
         let when_failed = Instant::now();
-        sleep(FIVE_SECONDS).await;
+        sleep(ONE_SECOND).await;
         let retry_event = RuleServerMsg::WatchedFileChanged(when_failed);
         _ = server_ref.cast(retry_event).await
     }
@@ -206,7 +206,7 @@ async fn update_rules_or_retry(
         error!(?why, "Failed to update rules.");
 
         let when_fail = Instant::now();
-        sleep(FIVE_SECONDS).await;
+        sleep(ONE_SECOND).await;
         let retry_event = RuleServerMsg::ReadRules(when_fail);
         _ = server_ref.cast(retry_event).await
     }

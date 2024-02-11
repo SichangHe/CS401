@@ -20,7 +20,7 @@ mod read_rules;
 mod serve;
 mod watch_file;
 
-const FIVE_SECONDS: Duration = Duration::from_secs(5);
+const ONE_SECOND: Duration = Duration::from_secs(1);
 
 #[main]
 #[instrument(skip(data_dir), fields(data_dir = ?data_dir.as_ref()))]

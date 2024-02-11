@@ -67,8 +67,6 @@ A request contains a list of songs:
 
 The response contains song recommendations:
 
-<!-- TODO: Update the implementation to sync. -->
-
 ```jsonc
 {
     "songs": [
@@ -158,7 +156,7 @@ because the ML Processor checks the *checkpoint file* to
 skip rule generation when the configuration is unchanged.
 I set a time-to-live-after-finished on this job,
 so it gets deleted 60sec after it finishes.
-<!-- TODO: What is the problem it solves. -->
+This gets around the problem of the immutable job variables.
 The downside to this approach is that the minimum update interval is 60sec,
 and that when the ML container fails, it needs to be deleted manually.
 
