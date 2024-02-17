@@ -105,7 +105,10 @@ server with arbitrary number of songs taken from the user.
 
 ```sh
 $ python3 rest_client.py --help
-Usage: rest_client.py <Song recommender server IP> <Song recommender server port> <Song 0> [<Song 1> … <Song n>]
+Usage: rest_client.py [<FLAG>] <Song recommender server IP> <Song recommender server port> <Song 0> [<Song 1> … <Song n>]
+<FLAG>:
+    -h, --help: Print this help message
+    -c, --continuous: Make continuous requests to the server and measure response changes
 ```
 
 For example, we can generate a request using these songs:
@@ -123,6 +126,8 @@ Song recommendations:
     Slippery (feat. Gucci Mane)
     Bank Account
 ```
+
+The "continuous" flag can be used to track deployment changes as used later.
 
 ## Part 2: Continuous Integration and Continuous Delivery
 
