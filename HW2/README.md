@@ -127,7 +127,8 @@ Song recommendations:
     Bank Account
 ```
 
-The "continuous" flag can be used to track deployment changes as used later.
+The "continuous" flag can be used to track deployment changes as used later in
+Part 3.
 
 ## Part 2: Continuous Integration and Continuous Delivery
 
@@ -240,6 +241,7 @@ I disabled self-healing in the Argo CD synchronization policy to fix this.
 
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
+<!--
 Test that ArgoCD redeploys when we update
 
 - the Kubernetes deployment,
@@ -248,18 +250,56 @@ Test that ArgoCD redeploys when we update
 
 Measure how long the CI/CD pipeline takes to update the deployment by continuously issuing requests using your client and checking for the update in the server's responses (either the version or dataset date).
 
+Estimate if and for how long your application stays offline.
+-->
+
+### Updating the Kubernetes Deployment
+
 First,
 we test changing the Kubernetes deployment by changing the replica count from 3
-to 2. We start the measurement client:
+to 2. I started the measurement client in continuous mode on the VM:
 
 ```sh
-python3 rest_client.py -c 10.110.141.13 52004 DNA.
+python3 rest_client.py -c 10.110.141.13 52004 DNA. | tee measurement-update-k8s.csv
 ```
 
-We then push the changes to Git remote and immediately record the system time.
+I then pushed the changes to the Git remote from my machine (UTC+8)
+and immediately recorded the system time:
 
 ```sh
 $ git push && date +"%T.%3N"
+# Git output…
+   3b49044..01e6084  main -> main
+15:09:19.197
 ```
 
-Estimate if and for how long your application stays offline.
+The measurement client makes one request to the server every second and prints
+in a CSV format:
+
+```csv
+<Timestamp when sending request>,<Response time (ms)>,<Version>,<Model date>
+```
+
+For example, below are some of the rows in `measurement-update-k8s.csv`:
+
+```csv
+02:09:09,17.449,0.2.0,2024-02-16 06:27:06.328215627
+02:09:12,19.813,0.2.0,2024-02-16 06:27:06.328215627
+02:13:00,16.308,0.2.0,2024-02-16 06:27:06.328215627
+02:13:01,12.724,0.2.0,2024-02-16 06:27:06.328215627
+02:13:08,16.381,0.2.0,2024-02-16 06:27:06.328215627
+```
+
+Note that the time zone on the VM is UTC,
+and the response time includes the time spent running cURL.
+
+The application stayed online.
+There was no observable change in the server's response time after the
+deployment. As I recorded in `measurement-update-k8s.csv`,
+the response time stayed around 20ms.
+
+The CD pipeline took around 3min 42sec to update the deployment.
+At "Sat Feb 17 2024 15:13:01 GMT+0800",
+Argo CD detected the change in the Git repository and updated the deployment,
+as shown in its web UI. This is largely due to Argo CD's default sync interval
+of 3min.

@@ -78,6 +78,8 @@ Song recommendations:
 
 
 def continuous_request(post_data, address):
+    print("time,response_time,version,model_date")
+
     previous_response_time = 0
     previous_version = ""
     previous_model_date = ""
