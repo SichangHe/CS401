@@ -220,9 +220,18 @@ Therefore, any changes are pushed into production by changing the content of
 
 #### Automatically Updating Rules when the Dataset Changes
 
-Change pod name on update, or other methods.
+Instead of changing pod name on update to work around the problem of immutable
+job variables,
+I use jobs for the ML containers and set time-to-live-after-finished so they
+self-destruct, as detailed above.
 
-Other method: use jobs and set time-to-live after finish so they self-destruct.
+Initially,
+this caused the ML container jobs to be spawned in a loop because I enabled Argo
+CD self-healing in its synchronization policy. In details,
+the ML container is deleted 60sec after it finishes,
+which Argo CD detects as an out-of-sync to the manifest and creates a new ML
+container job.
+I disabled self-healing in the Argo CD synchronization policy to fix this.
 
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
