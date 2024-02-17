@@ -241,10 +241,9 @@ I disabled self-healing in the Argo CD synchronization policy to fix this.
 
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
-<!--
+<!-- TODO:
 Test that ArgoCD redeploys when we update
 
-- the Kubernetes deployment,
 - the code,
 - the training dataset.
 
@@ -293,6 +292,11 @@ For example, below are some of the rows in `measurement-update-k8s.csv`:
 Note that the time zone on the VM is UTC,
 and the response time includes the time spent running cURL.
 
+If the data of one request are similar to the previous according to some
+heuristics, the client omits printing them.
+
+#### Results Updating The Kubernetes Deployment
+
 The application stayed online.
 There was no observable change in the server's response time after the
 deployment. As I recorded in `measurement-update-k8s.csv`,
@@ -303,3 +307,23 @@ At "Sat Feb 17 2024 15:13:01 GMT+0800",
 Argo CD detected the change in the Git repository and updated the deployment,
 as shown in its web UI. This is largely due to Argo CD's default sync interval
 of 3min.
+
+### Updating the Code
+
+I first bumped `rest_server`'s version from `0.2.0` to `0.2.1`,
+and bumped the versions in the Docker compose file accordingly.
+I then rebuilt the containers and pushed the new image to Docker Hub.
+
+Similar to the previous experiment, I started the measurement client in continuous mode on the VM:
+
+```sh
+python3 rest_client.py -c 10.110.141.13 52004 DNA. | tee measurement-update-code.csv
+```
+
+And,
+I pushed the changes to the Git remote and immediately recorded the system time:
+
+```sh
+$ git push && date +"%T.%3N"
+# Git output…
+```
