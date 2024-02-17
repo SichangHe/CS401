@@ -17,6 +17,7 @@ kind: Job
 metadata:
   name: cs401-sh623-hw2-ml
 spec:
+  ttlSecondsAfterFinished: 60
   template: # <https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates>
     spec:
       containers:

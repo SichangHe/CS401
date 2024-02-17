@@ -171,14 +171,14 @@ The Kubernetes configurations are defined in `k8s-tasks.yml`, including:
 
 I chose to use a job to run the ML container instead of a deployment or pod,
 because it is a one-off task to be done at the beginning of each deployment.
-There are no problems that it is run every time the deployment is updated
+There are no problems that it is run every time the configuration is updated
 because the ML Processor checks the *checkpoint file* to
 skip rule generation when the configuration is unchanged.
-<!-- TODO: ? I set a time-to-live-after-finished on this job,
+I set a time-to-live-after-finished on this job,
 so it gets deleted 60sec after it finishes.
 This gets around the problem of the immutable job variables.
 The downside to this approach is that the minimum update interval is 60sec,
-and that when the ML container fails, it needs to be deleted manually. -->
+and that when the ML container fails, it needs to be deleted manually.
 
 ### 3. Configure Automatic Deployment in ArgoCD
 
@@ -210,18 +210,19 @@ spec:
   syncPolicy:
     automated:
       prune: true
-      selfHeal: true
     syncOptions: []
 ```
 
 All deployment configurations are defined in the `k8s-tasks.yml` file,
 including the pointer to the dataset for the ML container.
+Therefore, any changes are pushed into production by changing the content of
+`k8s-tasks.yml`.
 
 #### Automatically Updating Rules when the Dataset Changes
 
 Change pod name on update, or other methods.
 
-<!-- TODO: ? Other method: use jobs and set time-to-live after finish so they self-destruct. -->
+Other method: use jobs and set time-to-live after finish so they self-destruct.
 
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
