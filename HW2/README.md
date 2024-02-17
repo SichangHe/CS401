@@ -2,6 +2,18 @@
 
 ## Introduction
 
+In this project,
+I build a continuous delivery pipeline for a song recommendation service.
+The pipeline includes a machine learning (ML)
+processor that generates recommendation rules,
+a Representational State Transfer Application Programming Interface (REST API)
+server that serves song recommendations,
+and a REST API client that requests the REST API server with arbitrary number of
+songs taken from the user.
+The pipeline is deployed on a Kubernetes cluster and managed by ArgoCD. I then
+exercise and evaluate the continuous delivery pipeline by updating the
+Kubernetes deployment, updating the code, and updating the training dataset.
+
 ## Dataset
 
 The datasets used are hosted [here](https://homepages.dcc.ufmg.br/~cunha/hosted/cloudcomp-2023s2-datasets/).
