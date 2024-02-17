@@ -174,11 +174,11 @@ because it is a one-off task to be done at the beginning of each deployment.
 There are no problems that it is run every time the deployment is updated
 because the ML Processor checks the *checkpoint file* to
 skip rule generation when the configuration is unchanged.
-I set a time-to-live-after-finished on this job,
+<!-- TODO: ? I set a time-to-live-after-finished on this job,
 so it gets deleted 60sec after it finishes.
 This gets around the problem of the immutable job variables.
 The downside to this approach is that the minimum update interval is 60sec,
-and that when the ML container fails, it needs to be deleted manually.
+and that when the ML container fails, it needs to be deleted manually. -->
 
 ### 3. Configure Automatic Deployment in ArgoCD
 
@@ -221,7 +221,7 @@ including the pointer to the dataset for the ML container.
 
 Change pod name on update, or other methods.
 
-Other method: use jobs and set time-to-live after finish so they self-destruct.
+<!-- TODO: ? Other method: use jobs and set time-to-live after finish so they self-destruct. -->
 
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
