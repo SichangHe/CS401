@@ -10,7 +10,7 @@ def print_help():
     )
 
 
-def try_parse_args() -> tuple[str, str, list[str]]:
+def try_parse_args():
     ip = sys.argv[1]
     if ip in ("-h", "--help"):
         print_help()
@@ -22,7 +22,7 @@ def try_parse_args() -> tuple[str, str, list[str]]:
     return ip, port, songs
 
 
-def parse_args() -> tuple[str, str, list[str]]:
+def parse_args():
     try:
         return try_parse_args()
     except Exception as err:
