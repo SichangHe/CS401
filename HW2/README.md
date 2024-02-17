@@ -244,7 +244,6 @@ I disabled self-healing in the Argo CD synchronization policy to fix this.
 <!-- TODO:
 Test that ArgoCD redeploys when we update
 
-- the code,
 - the training dataset.
 
 Measure how long the CI/CD pipeline takes to update the deployment by continuously issuing requests using your client and checking for the update in the server's responses (either the version or dataset date).
@@ -256,10 +255,12 @@ Estimate if and for how long your application stays offline.
 
 First,
 we test changing the Kubernetes deployment by changing the replica count from 3
-to 2. I started the measurement client in continuous mode on the VM:
+to 2.
+I started the measurement client in continuous mode on the VM (the results are
+copied to `measurement-update-k8s.csv`):
 
 ```sh
-python3 rest_client.py -c 10.110.141.13 52004 DNA. | tee measurement-update-k8s.csv
+python3 rest_client.py -c 10.110.141.13 52004 DNA.
 ```
 
 I then pushed the changes to the Git remote from my machine (UTC+8)
@@ -308,22 +309,89 @@ Argo CD detected the change in the Git repository and updated the deployment,
 as shown in its web UI. This is largely due to Argo CD's default sync interval
 of 3min.
 
-### Updating the Code
+### Updating The Code
 
 I first bumped `rest_server`'s version from `0.2.0` to `0.2.1`,
 and bumped the versions in the Docker compose file accordingly.
 I then rebuilt the containers and pushed the new image to Docker Hub.
 
-Similar to the previous experiment, I started the measurement client in continuous mode on the VM:
-
-```sh
-python3 rest_client.py -c 10.110.141.13 52004 DNA. | tee measurement-update-code.csv
-```
-
-And,
+Similar to the previous experiment,
 I pushed the changes to the Git remote and immediately recorded the system time:
 
 ```sh
 $ git push && date +"%T.%3N"
 # Git output…
+   5a63e30..4c070d6  main -> main
+15:46:11.625
 ```
+
+Later, I started the measurement client in continuous mode on the VM and caught the service going down at the exact right moment.
+
+```csv
+02:48:58,11.968,0.2.0,2024-02-16 06:27:06.328215627
+02:49:04,12.778,0.2.0,2024-02-16 06:27:06.328215627
+02:49:06,913.243,,
+02:49:09,12.914,0.2.1,2024-02-16 06:27:06.328215627
+02:49:11,914.123,,
+02:49:12,187.220,0.2.1,2024-02-16 06:27:06.328215627
+02:49:12,12.424,0.2.1,2024-02-16 06:27:06.328215627
+02:49:14,17.210,0.2.1,2024-02-16 06:27:06.328215627
+```
+
+As Argo CD shows in its web UI,
+it updated the deployment at "Sat Feb 17 2024 15:49:01 GMT+0800".
+From 49:06 to 49:08 (for 3sec) and at 49:11,
+the measurement client had its requests timed out.
+
+#### Evaluating The Code Update
+
+Inspecting the deployment logs shows that the two servers were starting up and
+reading the rules from the *rules file*, so they deferred the response.
+
+```rust
+$ kubectl logs cs401-sh623-hw2-deployment-cb8c49f45-br8rr
+2024-02-17T07:49:04.050429Z  INFO run{port="3000" data_dir="/ml-data"}:serve{port="3000"}: rest_server::serve: Starting server.
+2024-02-17T07:49:04.050608Z  INFO handle_cast: rest_server::read_rules: Reading rules. when=Instant { tv_sec: 765115, tv_nsec: 572654102 }
+2024-02-17T07:49:04.050683Z  INFO handle_cast: rest_server::watch_file: Initializing file watcher.
+2024-02-17T07:49:05.952543Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+2024-02-17T07:49:05.952761Z  WARN handle_call: rest_server::read_rules: Deferring query reply.
+// …
+2024-02-17T07:49:08.957120Z  WARN handle_call: rest_server::read_rules: Deferring query reply.
+2024-02-17T07:49:09.590256Z  INFO make_rules_map{rules_path="/ml-data/rules.bincode"}: rest_server::read_rules: Read rules from file. n_rules=341941
+2024-02-17T07:49:09.888482Z  INFO handle_cast: rest_server::read_rules: New rules. new_datetime="2024-02-16 06:27:06.328215627"
+2024-02-17T07:49:09.950573Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+// …
+```
+
+```rust
+$ kubectl logs cs401-sh623-hw2-deployment-cb8c49f45-w5rkd
+2024-02-17T07:49:05.597039Z  INFO run{port="3000" data_dir="/ml-data"}:serve{port="3000"}: rest_server::serve: Starting server.
+2024-02-17T07:49:05.597595Z  INFO handle_cast: rest_server::read_rules: Reading rules. when=Instant { tv_sec: 765117, tv_nsec: 119735223 }
+2024-02-17T07:49:05.599042Z  INFO handle_cast: rest_server::watch_file: Initializing file watcher.
+2024-02-17T07:49:06.951733Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+2024-02-17T07:49:06.951927Z  WARN handle_call: rest_server::read_rules: Deferring query reply.
+// …
+2024-02-17T07:49:09.957802Z  WARN handle_call: rest_server::read_rules: Deferring query reply.
+2024-02-17T07:49:10.804069Z  INFO make_rules_map{rules_path="/ml-data/rules.bincode"}: rest_server::read_rules: Read rules from file. n_rules=341941
+// …
+2024-02-17T07:49:11.101222Z  INFO handle_cast: rest_server::read_rules: New rules. new_datetime="2024-02-16 06:27:06.328215627"
+2024-02-17T07:49:12.950657Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+// …
+```
+
+Realistically,
+the deferred requests would have been reevaluated every second and eventually
+served when the servers finished reading the rules,
+so the clients would instead experience a slow response.
+Argo CD started the new deployment at 49:01,
+and it took 3sec for Kubernetes to launch the new containers and start routing
+new traffic to them. The first server was reading the rules from 49:04 to 49:09,
+and the second server from 49:04 to 49:11.
+Kubernetes started to redirect requests to the new servers at 49:06,
+so some requests might take up to 5sec to complete.
+
+Therefore, it took 3min 0sec for the pipeline to finish updating the deployment.
+The application was never offline, but had a slow response period for 5sec.
+
+Ideally, Kubernetes would have waited for the new servers to be ready before
+routing traffic to them. This would be a future enhancement.
