@@ -100,9 +100,29 @@ The actor library is extracted into
 
 ### 3. REST API Client
 
-Generate requests using songs in `songs.csv`. Request with arbitrary number of songs taken from the user.
+The REST API client at `rest_client.py` can be used to request the REST API
+server with arbitrary number of songs taken from the user.
 
-<!-- TODO: Web-based front-end. -->
+```sh
+$ python3 rest_client.py --help
+Usage: rest_client.py <Song recommender server IP> <Song recommender server port> <Song 0> [<Song 1> … <Song n>]
+```
+
+For example, we can generate a request using these songs:
+
+```sh
+$ python3 rest_client.py 10.110.141.13 52004 DNA. HUMBLE. Magnolia "Slippery (feat. Gucci Mane)" "I Get The Bag (feat. Migos)"
+Recommendation server v0.2.0 with model from 2024-02-16 06:27:06.328215627.
+Song recommendations:
+    Tunnel Vision
+    Butterfly Effect
+    T-Shirt
+    goosebumps
+    Mask Off
+    XO TOUR Llif3
+    Slippery (feat. Gucci Mane)
+    Bank Account
+```
 
 ## Part 2: Continuous Integration and Continuous Delivery
 
