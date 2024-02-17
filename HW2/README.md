@@ -395,3 +395,15 @@ The application was never offline, but had a slow response period for 5sec.
 
 Ideally, Kubernetes would have waited for the new servers to be ready before
 routing traffic to them. This would be a future enhancement.
+
+### Updating The Training Dataset
+
+First,
+I updated the `DATASET_URL` environment variable for the ML container in
+`k8s-tasks.yml` to point to the second dataset rather than the first.
+I pushed this change to the Git remote and immediately recorded the system time:
+
+```sh
+$ git push && date +"%T.%3N"
+# Git output…
+```
