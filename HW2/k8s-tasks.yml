@@ -46,7 +46,7 @@ metadata:
   labels:
     app: cs401-sh623-hw2
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: cs401-sh623-hw2

@@ -248,4 +248,18 @@ Test that ArgoCD redeploys when we update
 
 Measure how long the CI/CD pipeline takes to update the deployment by continuously issuing requests using your client and checking for the update in the server's responses (either the version or dataset date).
 
+First,
+we test changing the Kubernetes deployment by changing the replica count from 3
+to 2. We start the measurement client:
+
+```sh
+python3 rest_client.py -c 10.110.141.13 52004 DNA.
+```
+
+We then push the changes to Git remote and immediately record the system time.
+
+```sh
+$ git push && date +"%T.%3N"
+```
+
 Estimate if and for how long your application stays offline.
