@@ -241,16 +241,6 @@ I disabled self-healing in the Argo CD synchronization policy to fix this.
 
 ## Part 3: Exercise and Evaluate Continuous Delivery
 
-<!-- TODO:
-Test that ArgoCD redeploys when we update
-
-- the training dataset.
-
-Measure how long the CI/CD pipeline takes to update the deployment by continuously issuing requests using your client and checking for the update in the server's responses (either the version or dataset date).
-
-Estimate if and for how long your application stays offline.
--->
-
 ### Updating the Kubernetes Deployment
 
 First,
@@ -290,7 +280,7 @@ For example, below are some of the rows in `measurement-update-k8s.csv`:
 02:13:08,16.381,0.2.0,2024-02-16 06:27:06.328215627
 ```
 
-Note that the time zone on the VM is UTC,
+Note that the time zone on the VM is UTC-5,
 and the response time includes the time spent running cURL.
 
 If the data of one request are similar to the previous according to some
@@ -406,4 +396,53 @@ I pushed this change to the Git remote and immediately recorded the system time:
 ```sh
 $ git push && date +"%T.%3N"
 # Git output…
+   4179b7c..853fc9e  main -> main
+18:50:45.240
 ```
+
+Argo CD updated the deployment at "Sat Feb 17 2024 18:55:01 GMT+0800".
+The ML container started at 55:02 as reported by the Kubernetes logs.
+It finished generating the rules at 58:25 and finished writing the checkpoint
+file at 00:17.
+The measurement client running in continuous mode on the VM reported that it
+started to receive the new rules at 00:39 (the model date is in UTC):
+
+```csv
+06:00:33,25.372,0.2.1,2024-02-16 06:27:06.328215627
+06:00:35,14.822,0.2.1,2024-02-16 06:27:06.328215627
+06:00:36,19.909,0.2.1,2024-02-16 06:27:06.328215627
+06:00:39,590.021,0.2.1,2024-02-17 11:00:17.859596796
+06:00:39,15.373,0.2.1,2024-02-17 11:00:17.859596796
+06:00:41,600.760,0.2.1,2024-02-17 11:00:17.859596796
+06:00:41,16.879,0.2.1,2024-02-17 11:00:17.859596796
+06:00:43,15.524,0.2.1,2024-02-17 11:00:17.859596796
+```
+
+There was no downtime,
+but two lag spikes of around 600ms were observed at 00:39 and 00:41.
+
+```rust
+$ kubectl logs cs401-sh623-hw2-deployment-cb8c49f45-br8rr
+2024-02-17T11:00:37.239401Z  INFO make_rules_map{rules_path="/ml-data/rules.bincode"}: rest_server::read_rules: Read rules from file. n_rules=1141999
+2024-02-17T11:00:38.315596Z  INFO handle_cast: rest_server::read_rules: New rules. new_datetime="2024-02-17 11:00:17.859596796"
+2024-02-17T11:00:41.513466Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+2024-02-17T11:00:41.929109Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+```
+
+```rust
+$ kubectl logs cs401-sh623-hw2-deployment-cb8c49f45-w5rkd
+2024-02-17T11:00:37.139566Z  INFO make_rules_map{rules_path="/ml-data/rules.bincode"}: rest_server::read_rules: Read rules from file. n_rules=1141999
+2024-02-17T11:00:37.932086Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+2024-02-17T11:00:38.257886Z  INFO handle_cast: rest_server::read_rules: New rules. new_datetime="2024-02-17 11:00:17.859596796"
+2024-02-17T11:00:39.502258Z  INFO rest_server::serve: request=RecommendationRequest { songs: ["DNA."] }
+```
+
+Inspecting the deployment logs shows that the servers just finished reading the
+updated rules when the lag spikes were observed,
+suggesting that the *rule server* lagged when receiving the new rules read from
+another thread.
+This should not have happened because no intensive computation was involved,
+so the underlying cause remains unknown.
+
+In summary, the CD pipeline took 9min 54sec to fully update the deployment,
+and it was never offline.
