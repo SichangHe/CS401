@@ -12,10 +12,9 @@ def print_help():
 
 def try_parse_args() -> tuple[str, str, list[str]]:
     ip = sys.argv[1]
-    match ip:
-        case "-h" | "--help":
-            print_help()
-            sys.exit(0)
+    if ip in ("-h", "--help"):
+        print_help()
+        sys.exit(0)
     port = sys.argv[2]
     songs = sys.argv[3:]
     assert len(songs) > 0, "At least one song must be provided"
