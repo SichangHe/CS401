@@ -103,3 +103,11 @@ classic software development → agile → DevOps →
         - post-mortem report, pager fatigue
     - error budget: target < 100% availability, adjust development accordingly
     - playbook: automate away human
+
+networking safety and isolation: harden north-south traffic,
+    assume cooperation & prevent traffic among tenant on east-west traffic
+
+- same tenant: overlay topology (virtual) & underlay (physical)
+- different tenant: traffic like north-south
+- implementation: VLAN, packet carry tag
+    - VXLAN (extended): encapsulate, solve 4096 VLAN limit
