@@ -1,5 +1,6 @@
 defmodule DashboardWeb.Router do
   use DashboardWeb, :router
+  import Phoenix.LiveView.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -17,7 +18,7 @@ defmodule DashboardWeb.Router do
   scope "/", DashboardWeb do
     pipe_through :browser
 
-    get "/", PageController, :index
+    live "/", Live
   end
 
   # Other scopes may use custom stacks.
