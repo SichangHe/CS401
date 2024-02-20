@@ -15,11 +15,18 @@ defmodule DashboardWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/", DashboardWeb do
+    pipe_through :browser
+
+    get "/", PageController, :index
+  end
+
   scope "/" do
     pipe_through :browser
 
-    live_dashboard "/",
-      metrics: DashboardWeb.Telemetry
+    live_dashboard "/dashboard",
+      metrics: DashboardWeb.Telemetry,
+      request_logger: false
   end
 
   # Enables the Swoosh mailbox preview in development.
