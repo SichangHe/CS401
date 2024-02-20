@@ -10,28 +10,22 @@ The data is stored in Redis under the `metrics` key.
 
 ### Data Output (Computed Metric and Function Results)
 
-- [ ] Your serverless function should compute two stateless metrics at each point in time:
-    - [ ] the percentage of outgoing traffic bytes and
-    - [ ] the percentage of memory caching content (given by the cached and buffer memory areas).
-- [ ] Your function should also compute a moving average utilization of each CPU over the last minute.
-- [ ] Your function should return a JSON-encodable dictionary containing at least P + 2 keys, where P is the number of CPUs monitored.
-    - [ ] The keys should describe the output metric (for example `avg-util-cpu1-60sec` or `percent-network-egress`),
-    - [ ] and the values should be JSON-encodable objects that can be consumed by a monitoring dashboard (see Task 2).
+My serverless function computes two stateless metrics at each point in time:
+the percentage of outgoing traffic bytes under the key
+`percentage_outgoing_bytes` and the percentage of memory caching content under
+the key `percentage_memory_caching`.
 
-### Context Information
+My function also compute a moving average utilization of each CPU over the last
+minute under the key `moving_average_cpu_percent-X` (for CPU `X`)
+by taking the arithmetic mean of all the CPU utilization percentages within the
+last minute.
+This is achieved by storing each CPU's utilization percentages and the
+timestamps they are recorded in a list under the key `cpu_percent-X` in
+`context.env`.
 
-The `context` object contains the `env` dictionary that you can persist values.
+These keys (`percentage_outgoing_bytes`, `percentage_memory_caching`, and `moving_average_cpu_percent-X`, totaling $N_{\text{CPU}} + 2$ keys) are returned from the `handle` function as a JSON-encodable dictionary.
 
 ### Integration with the Serverless Framework
-
-- [ ] The serverless function must be at the root of a Python module. The module must be importable in Python.
-- [ ] The serverless function must be called handler and have the following definition:
-
-    ```python
-    def handler(input: dict, context: object) -> dict[str, Any]
-    ```
-
-- [ ] The returned value should be a JSON-encodable dictionary containing the data to be plotted in a dashboard.
 
 A Docker image named `lucasmsp/serverless:redis` is provided.
 We also provide a deployment file that you should use to deploy your application.
