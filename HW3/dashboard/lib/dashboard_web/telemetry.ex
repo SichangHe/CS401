@@ -10,8 +10,8 @@ defmodule DashboardWeb.Telemetry do
   def init(_arg) do
     children = [
       # Telemetry poller will execute the given period measurements
-      # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics
-      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
+      # every N ms. Learn more here: https://hexdocs.pm/telemetry_metrics
+      {:telemetry_poller, measurements: periodic_measurements(), period: 2_500}
       # Add reporters as children of your supervision tree.
       # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
     ]
@@ -21,6 +21,10 @@ defmodule DashboardWeb.Telemetry do
 
   def metrics do
     [
+      # Monitoring
+      # <https://medium.com/@marcdel/adding-custom-metrics-to-a-phoenix-1-5-live-dashboard-1b21a8df5cf1>
+      summary("monitoring.redis.poll", unit: {:byte, :byte}),
+
       # Phoenix Metrics
       summary("phoenix.endpoint.stop.duration",
         unit: {:native, :millisecond}
@@ -46,3 +50,4 @@ defmodule DashboardWeb.Telemetry do
     ]
   end
 end
+

@@ -47,7 +47,7 @@ defmodule DashboardWeb.Live do
     Phoenix.LiveDashboard.SystemInfo.fetch_ets(node, search, sort_by, sort_dir, limit)
   end
 
-  defp row_attrs(table) do
+  defp row_attrs(_table) do
     [
       {"phx-click", "show_info"},
       {"phx-value-info", "placeholder"},
