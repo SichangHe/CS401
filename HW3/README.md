@@ -23,7 +23,9 @@ This is achieved by storing each CPU's utilization percentages and the
 timestamps they are recorded in a list under the key `cpu_percent-X` in
 `context.env`.
 
-These keys (`percentage_outgoing_bytes`, `percentage_memory_caching`, and `moving_average_cpu_percent-X`, totaling $N_{\text{CPU}} + 2$ keys) are returned from the `handle` function as a JSON-encodable dictionary.
+These keys (`percentage_outgoing_bytes`, `percentage_memory_caching`,
+and `moving_average_cpu_percent-X`, totaling $N_{\text{CPU}} + 2$ keys)
+are returned from the `handle` function as a JSON-encodable dictionary.
 
 ### Integration with the Serverless Framework
 

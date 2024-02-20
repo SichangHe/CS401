@@ -86,6 +86,7 @@
 **comment.cut
 
 # Specific
+**.lock
 assignments/
 readings/
 slides/
