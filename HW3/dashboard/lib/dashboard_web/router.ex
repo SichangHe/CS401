@@ -15,11 +15,11 @@ defmodule DashboardWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", DashboardWeb do
-    pipe_through :browser
-
-    live "/", Live
-  end
+  # scope "/", DashboardWeb do
+  #   pipe_through :browser
+  #
+  #   live "/", Live
+  # end
 
   # Other scopes may use custom stacks.
   # scope "/api", DashboardWeb do
@@ -39,7 +39,11 @@ defmodule DashboardWeb.Router do
     scope "/" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: DashboardWeb.Telemetry
+      live_dashboard "/dashboard",
+        metrics: DashboardWeb.Telemetry,
+        additional_pages: [
+          monitoring: DashboardWeb.Live
+        ]
     end
   end
 
