@@ -111,3 +111,7 @@ networking safety and isolation: harden north-south traffic,
 - different tenant: traffic like north-south
 - implementation: VLAN, packet carry tag
     - VXLAN (extended): encapsulate, solve 4096 VLAN limit
+
+remote storage interface: file/ block interface (NFS/ virtual disk)
+
+object storage: key-bytes pair
