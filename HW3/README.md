@@ -39,9 +39,18 @@ We also provide a deployment file that you should use to deploy your application
 
 ## Task 2: Monitoring Dashboard
 
-build a Kubernetes Pod (including the container image) to display the monitoring information computed by your serverless function.
+To display the monitoring information computed by my serverless function,
+I leverage the metrics section of Phoenix web framework's built-in live
+dashboard. Specifically,
+I poll the Redis server for the metrics every 2.5 seconds,
+and [register it as telemetry
+events](https://hexdocs.pm/phoenix/telemetry.html#telemetry-events);
+in the dashboard's metrics configuration,
+I [listen to these
+events](https://medium.com/@marcdel/adding-custom-metrics-to-a-phoenix-1-5-live-dashboard-1b21a8df5cf1).
+The live dashboard then automatically displays the metrics in real-time as a
+line chart.
 
-- [ ] Choose one dashboard framework.
 - [ ] Implement code to show the metrics computed by your serverless function
 - [ ] Read data from Redis into your dashboard using `sh623-proj3-output`.
 - [ ] Package your dashboard in a Docker image, create a Kubernetes Deployment specification, and a Service specification.
