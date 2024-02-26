@@ -108,9 +108,12 @@ In the runtime provided for this assignment, data is periodically read from Redi
 
 ### Required Extensions
 
-Your runtime should allow users to specify the following parameters through ConfigMaps:
+My runtime allows users to specify the following parameters through ConfigMaps:
 
-- [ ] Redis Input Key: Your runtime should allow the user to configure a different Redis key to be monitored by your runtime. (This is equivalent to setting the `REDIS_INPUT_KEY` in the default runtime.)
+- Redis Input Key:
+    My runtime allows the user to configure a different Redis key to be
+    monitored by setting the `REDIS_INPUT_KEY`.
+    <!-- TODO: ConfigMap -->
 - [ ] Redis Monitoring Period: Your runtime should allow the user to configure the period, in seconds, of how frequently the Redis key above should be monitored. (The default runtime sets this to 5 seconds.)
 - [ ] Complex Function Support: Your runtime should allow the user to pass in the location of a Zip file containing the function's code. This will allow users to conveniently run functions that are implemented using multiple Python modules (that is, multiple Python files). This functionality should be provided in addition to the `pyfile` ConfigMap described above.
 - [ ] Function Handler: Your runtime should allow the user to specify what function should be called as the "entry point". The entry point function should still receive `input` and `context` as parameters as in the original runtime.
