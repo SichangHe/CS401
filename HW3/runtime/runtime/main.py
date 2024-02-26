@@ -1,26 +1,27 @@
-import importlib
 import json
 import os
 import traceback
 from dataclasses import replace
 from datetime import datetime
 from time import sleep
-from typing import Callable
+from typing import Callable, Final
 
 from redis import Redis
 
-from runtime import Context, logger
+from runtime import Context, import_file, logger
 
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_INPUT_KEY = os.getenv("REDIS_INPUT_KEY", "metrics")
-REDIS_OUTPUT_KEY: str = os.getenv("REDIS_OUTPUT_KEY")  # type: ignore
+REDIS_HOST: Final = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT: Final = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_INPUT_KEY: Final = os.getenv("REDIS_INPUT_KEY", "metrics")
+REDIS_OUTPUT_KEY: Final[str] = os.getenv("REDIS_OUTPUT_KEY")  # type: ignore
 assert (
     REDIS_OUTPUT_KEY is not None
 ), "Environment variable `REDIS_OUTPUT_KEY` must be provided."
 
-FUNCTION_MODULE_NAME = "usermodule"  # TODO: What should this be?
-SLEEP_SECONDS = 5.0
+FUNCTION_MODULE_NAME: Final = "usermodule"
+FUNCTION_PATH: Final = "/opt/usermodule.py"
+SLEEP_SECONDS: Final = 5.0
+MAX_N_ERROR_ALLOWED: Final = 3
 
 
 def run(
@@ -38,17 +39,18 @@ def run(
 
 
 def main() -> int:
-    function_module = importlib.import_module(FUNCTION_MODULE_NAME)
-    assert (function_module_file := function_module.__file__) is not None
+    if (function_module := import_file(FUNCTION_PATH, FUNCTION_MODULE_NAME)) is None:
+        logger.error("Please provide the function module file.")
+        return 1
     function = function_module.handler
-    function_mtime = datetime.fromtimestamp(os.path.getmtime(function_module_file))
+    function_mtime = datetime.fromtimestamp(os.path.getmtime(FUNCTION_PATH))
 
     context = Context(
         REDIS_HOST, REDIS_PORT, REDIS_INPUT_KEY, REDIS_OUTPUT_KEY, function_mtime
     )
     redis = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
-    n_error_allowed = 3
+    n_error_allowed = MAX_N_ERROR_ALLOWED
     metrics: dict | None = None
     while n_error_allowed:
         try:
@@ -56,7 +58,7 @@ def main() -> int:
             if maybe_metrics is not None:
                 metrics = maybe_metrics
                 context = replace(context, last_execution=datetime.now())
-            n_error_allowed = 3
+            n_error_allowed = MAX_N_ERROR_ALLOWED
         except KeyboardInterrupt:
             return 0
         except Exception as exception:
