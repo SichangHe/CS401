@@ -37,6 +37,10 @@ We also provide a deployment file that you should use to deploy your application
 - [ ] Create a ConfigMap named `outputkey` containing a single key named `REDIS_OUTPUT_KEY` with the value being a string where results from your function should be stored on Redis. Store outputs from your function in a Redis key `sh623-proj3-output`.
 - [ ] Deploy your serverless function by applying the provided deployment file to your Kubernetes namespace.
 
+```sh
+kubectl -n sh623 apply -f outputkey-cm.yml -f pyfile-cm.yml -f serverless-deployment-course.yaml
+```
+
 ## Task 2: Monitoring Dashboard
 
 To display the monitoring information computed by my serverless function,

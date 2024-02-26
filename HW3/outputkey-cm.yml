@@ -4,4 +4,4 @@ kind: ConfigMap
 metadata:
   name: outputkey
 data:
-  outputkey: sh623-proj3-output
+  REDIS_OUTPUT_KEY: sh623-proj3-output
