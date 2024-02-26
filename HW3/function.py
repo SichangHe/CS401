@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 
 
-def percentage_outgoing_bytes(metrics: dict, result: dict[str, float]) -> None:
+def percentage_outgoing_bytes(metrics: dict, result: dict) -> None:
     """The percentage of outgoing traffic bytes."""
     n_bytes_sent = metrics["net_io_counters_eth0-bytes_sent"]
     n_bytes_received = metrics["net_io_counters_eth0-bytes_recv"]
@@ -14,7 +14,7 @@ def percentage_outgoing_bytes(metrics: dict, result: dict[str, float]) -> None:
     )
 
 
-def percentage_memory_caching(metrics: dict, result: dict[str, float]) -> None:
+def percentage_memory_caching(metrics: dict, result: dict) -> None:
     """The percentage of memory caching content."""
     memory_buffer = metrics["virtual_memory-buffers"]
     memory_cached = metrics["virtual_memory-cached"]
@@ -27,7 +27,7 @@ def percentage_memory_caching(metrics: dict, result: dict[str, float]) -> None:
     )
 
 
-def moving_avg_cpu(metrics: dict, context, result: dict[str, float]) -> None:
+def moving_avg_cpu(metrics: dict, context, result: dict) -> None:
     """Compute a moving average utilization of each CPU over the last minute."""
     metrics_timestamp_str = metrics["timestamp"]
     assert isinstance(metrics_timestamp_str, str)
@@ -42,7 +42,7 @@ def moving_avg_cpu(metrics: dict, context, result: dict[str, float]) -> None:
             break
         assert isinstance(cpu_percent, float)
 
-        cpu_percents_in_last_minute: list[tuple[float, datetime]] = [
+        cpu_percents_in_last_minute = [
             (percent, time)
             for percent, time in context.env.get(cpu_key, [])
             if time > one_minute_ago
@@ -55,9 +55,9 @@ def moving_avg_cpu(metrics: dict, context, result: dict[str, float]) -> None:
         ) / len(cpu_percents_in_last_minute)
 
 
-def handler(metrics: dict, context) -> dict[str, float]:
+def handler(metrics: dict, context) -> dict:
     """Entry point for the runtime."""
-    result: dict[str, float] = {}
+    result: dict = {}
     percentage_outgoing_bytes(metrics, result)
     percentage_memory_caching(metrics, result)
     moving_avg_cpu(metrics, context, result)
