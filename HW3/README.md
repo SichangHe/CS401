@@ -67,7 +67,14 @@ and the output key can be specified in the environment variable
 - [ ] Package your dashboard in a Docker image, create a Kubernetes Deployment specification, and a Service specification.
     - [ ] Expose dashboard on port 53004.
 
-I generated the `Dockerfile` using `mix phx.gen.release --docker`.
+I generated the `Dockerfile` using `mix phx.gen.release --docker`,
+added a Docker compose file, and built the image at `dashboard` with:
+
+```sh
+DOCKER_DEFAULT_PLATFORM="linux/amd64" docker compose build
+```
+
+The image built is on DockerHub, named `sssstevenhe/cs401-hw3-dashboard`.
 
 ## Task 3: Serverless Runtime
 
