@@ -68,7 +68,10 @@ and the output key can be specified in the environment variable
     - [ ] Expose dashboard on port 53004.
 
 I generated the `Dockerfile` using `mix phx.gen.release --docker`,
-added a Docker compose file, and built the image at `dashboard` with:
+added a Docker compose file,
+[patched the
+`Dockerfile`](https://elixirforum.com/t/mix-deps-get-memory-explosion-when-doing-cross-platform-docker-build/57157/3)
+so it builds on ARM Macs, and built the image at `dashboard` with:
 
 ```sh
 DOCKER_DEFAULT_PLATFORM="linux/amd64" docker compose build
