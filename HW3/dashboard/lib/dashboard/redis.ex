@@ -24,9 +24,23 @@ defmodule Dashboard.Redis do
       %{
         percentage_memory_caching: metrics["percentage_memory_caching"],
         percentage_outgoing_bytes: metrics["percentage_outgoing_bytes"]
-      },
-      %{}
+      }
     )
+
+    0..8192
+    |> Enum.take_while(fn cpu_index ->
+      cpu_key = "moving_average_cpu_percent-#{cpu_index}"
+
+      case Map.get(metrics, cpu_key) do
+        nil ->
+          false
+
+        cpu_percent ->
+          :telemetry.execute([:monitoring], %{moving_average_cpu_percent: cpu_percent}, %{cpu_index: cpu_index})
+          true
+      end
+    end)
+
     Process.send_after(self(), :poll, 2_500)
     {:noreply, redis}
   end

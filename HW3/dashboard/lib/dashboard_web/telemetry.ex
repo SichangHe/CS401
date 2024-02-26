@@ -23,8 +23,9 @@ defmodule DashboardWeb.Telemetry do
     [
       # Monitoring
       # <https://medium.com/@marcdel/adding-custom-metrics-to-a-phoenix-1-5-live-dashboard-1b21a8df5cf1>
-      summary("monitoring.percentage_memory_caching"),
-      summary("monitoring.percentage_outgoing_bytes"),
+      last_value("monitoring.percentage_memory_caching"),
+      last_value("monitoring.percentage_outgoing_bytes"),
+      summary("monitoring.moving_average_cpu_percent", tags: [:cpu_index]),
 
       # Phoenix Metrics
       summary("phoenix.endpoint.stop.duration",
