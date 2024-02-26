@@ -29,13 +29,16 @@ are returned from the `handle` function as a JSON-encodable dictionary.
 
 ### Integration with the Serverless Framework
 
-A Docker image named `lucasmsp/serverless:redis` is provided.
-We also provide a deployment file that you should use to deploy your application.
+I use the image `lucasmsp/serverless:redis` and the deployment files as
+provided, without changes. To set specify the serverless function,
+I create a ConfigMap in `pyfile-cm.yml`, with a single key named `pyfile`,
+whose value is my serverless function source code.
+I also create another ConfigMap in `outputkey-cm.yml` that contains a single key
+named `REDIS_OUTPUT_KEY` corresponding to `sh623-proj3-output` to store my
+output in Redis.
 
-- [ ] You must use the image and the deployment files as provided, without changes.
-- [ ] Create a ConfigMap named `pyfile` in your Kubernetes namespace. This ConfigMap should have a single key named `pyfile`, and the value should be your module's source code.
-- [ ] Create a ConfigMap named `outputkey` containing a single key named `REDIS_OUTPUT_KEY` with the value being a string where results from your function should be stored on Redis. Store outputs from your function in a Redis key `sh623-proj3-output`.
-- [ ] Deploy your serverless function by applying the provided deployment file to your Kubernetes namespace.
+I deploy my serverless function by applying my ConfigMaps and the provided
+deployment file to my Kubernetes namespace:
 
 ```sh
 kubectl -n sh623 apply -f outputkey-cm.yml -f pyfile-cm.yml -f serverless-deployment-course.yaml
