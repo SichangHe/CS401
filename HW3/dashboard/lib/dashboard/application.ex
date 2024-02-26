@@ -14,7 +14,13 @@ defmodule Dashboard.Application do
       {Phoenix.PubSub, name: Dashboard.PubSub},
       # Start the Endpoint (http/https)
       DashboardWeb.Endpoint,
-      Dashboard.Redis
+      {Dashboard.Redis,
+       host: System.get_env("REDIS_HOST", "localhost"),
+       port:
+         case System.get_env("REDIS_PORT") do
+           nil -> 6379
+           port -> String.to_integer(port)
+         end}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

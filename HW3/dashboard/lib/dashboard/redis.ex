@@ -3,7 +3,9 @@ defmodule Dashboard.Redis do
   require Logger
 
   def start_link(args \\ []) do
-    {:ok, redis} = Redix.start_link(host: "localhost", port: 6379)
+    host = Keyword.get(args, :host)
+    port = Keyword.get(args, :port)
+    {:ok, redis} = Redix.start_link(host: host, port: port)
     GenServer.start_link(__MODULE__, redis, [{:name, __MODULE__} | args])
   end
 
@@ -36,7 +38,10 @@ defmodule Dashboard.Redis do
           false
 
         cpu_percent ->
-          :telemetry.execute([:monitoring], %{moving_average_cpu_percent: cpu_percent}, %{cpu_index: cpu_index})
+          :telemetry.execute([:monitoring], %{moving_average_cpu_percent: cpu_percent}, %{
+            cpu_index: cpu_index
+          })
+
           true
       end
     end)
