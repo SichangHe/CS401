@@ -7,10 +7,10 @@
 # You can add other services your application may depend on here, such as a
 # database or a cache. For examples, see the Awesome Compose repository:
 # https://github.com/docker/awesome-compose
-version: 0.1.0
+version: 0.1.1
 services:
   rest_server:
-    image: sssstevenhe/cs401-hw3-dashboard:0.1.0
+    image: sssstevenhe/cs401-hw3-dashboard:0.1.1
     build:
       context: .
       target: dashboard

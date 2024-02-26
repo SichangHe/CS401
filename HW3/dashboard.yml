@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: cs401-sh623-hw3-dashboard
-        image: sssstevenhe/cs401-hw3-dashboard:0.1.0
+        image: sssstevenhe/cs401-hw3-dashboard:0.1.1
         ports:
         - containerPort: 4000
         env:
