@@ -40,7 +40,9 @@ def run(
 
 def main() -> int:
     if (function_module := import_file(FUNCTION_PATH, FUNCTION_MODULE_NAME)) is None:
-        logger.error("Please provide the function module file.")
+        logger.error(
+            "Please provide the function module file. Not found at %s.", FUNCTION_PATH
+        )
         return 1
     function = function_module.handler
     function_mtime = datetime.fromtimestamp(os.path.getmtime(FUNCTION_PATH))

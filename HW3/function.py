@@ -1,23 +1,20 @@
 from datetime import datetime, timedelta
-from typing import Final
-
-ONE_MINUTE: Final[float] = 60.0
 
 
-def percentage_outgoing_bytes(input: dict, result: dict[str, float]) -> None:
+def percentage_outgoing_bytes(metrics: dict, result: dict[str, float]) -> None:
     """The percentage of outgoing traffic bytes."""
-    n_bytes_sent = input["net_io_counters_eth0-bytes_sent1"]
-    n_bytes_received = input["net_io_counters_eth0-bytes_recv1"]
+    n_bytes_sent = metrics["net_io_counters_eth0-bytes_sent1"]
+    n_bytes_received = metrics["net_io_counters_eth0-bytes_recv1"]
     assert isinstance(n_bytes_sent, int)
     assert isinstance(n_bytes_received, int)
     result["percentage_outgoing_bytes"] = n_bytes_sent * 100.0 / n_bytes_received
 
 
-def percentage_memory_caching(input: dict, result: dict[str, float]) -> None:
+def percentage_memory_caching(metrics: dict, result: dict[str, float]) -> None:
     """The percentage of memory caching content."""
-    memory_buffer = input["virtual_memory-buffers"]
-    memory_cached = input["virtual_memory-cached"]
-    memory_used = input["virtual_memory-used"]
+    memory_buffer = metrics["virtual_memory-buffers"]
+    memory_cached = metrics["virtual_memory-cached"]
+    memory_used = metrics["virtual_memory-used"]
     assert isinstance(memory_cached, int)
     assert isinstance(memory_buffer, int)
     assert isinstance(memory_used, int)
@@ -26,25 +23,27 @@ def percentage_memory_caching(input: dict, result: dict[str, float]) -> None:
     )
 
 
-def moving_avg_cpu(input: dict, context, result: dict[str, float]) -> None:
+def moving_avg_cpu(metrics: dict, context, result: dict[str, float]) -> None:
     """Compute a moving average utilization of each CPU over the last minute."""
-    now = datetime.now()
-    one_minute_ago = now - timedelta(seconds=ONE_MINUTE)
+    metrics_timestamp_str = metrics["timestamp"]
+    assert isinstance(metrics_timestamp_str, str)
+    metrics_timestamp = datetime.fromisoformat(metrics_timestamp_str)
+    one_minute_ago = datetime.now() - timedelta(minutes=1)
 
     assert isinstance(context.env, dict)
 
     for cpu_index in range(8192):
         cpu_key = f"cpu_percent-{cpu_index}"
-        cpu_percent: float | None = input.get(cpu_key)
-        if cpu_percent is None:
+        if (cpu_percent := metrics.get(cpu_key)) is None:
             break
+        assert isinstance(cpu_percent, float)
 
         cpu_percents_in_last_minute: list[tuple[float, datetime]] = [
             (percent, time)
             for percent, time in context.env.get(cpu_key, [])
             if time > one_minute_ago
         ]
-        cpu_percents_in_last_minute.append((cpu_percent, now))
+        cpu_percents_in_last_minute.append((cpu_percent, metrics_timestamp))
         context.env[cpu_key] = cpu_percents_in_last_minute
 
         result[f"moving_average_{cpu_key}"] = sum(
@@ -52,10 +51,10 @@ def moving_avg_cpu(input: dict, context, result: dict[str, float]) -> None:
         ) / len(cpu_percents_in_last_minute)
 
 
-def handler(input: dict, context) -> dict[str, float]:
+def handler(metrics: dict, context) -> dict[str, float]:
     """Entry point for the runtime."""
     result: dict[str, float] = {}
-    percentage_outgoing_bytes(input, result)
-    percentage_memory_caching(input, result)
-    moving_avg_cpu(input, context, result)
+    percentage_outgoing_bytes(metrics, result)
+    percentage_memory_caching(metrics, result)
+    moving_avg_cpu(metrics, context, result)
     return result
