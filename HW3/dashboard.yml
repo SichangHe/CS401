@@ -1,0 +1,39 @@
+# <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#writing-a-deployment-spec>
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cs401-sh623-hw3-deployment
+  labels:
+    app: cs401-sh623-hw3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cs401-sh623-hw3
+  template:
+    metadata:
+      labels:
+        app: cs401-sh623-hw3
+    spec:
+      containers:
+      - name: cs401-sh623-hw3-dashboard
+        image: sssstevenhe/cs401-hw3-dashboard:0.1.0
+        ports:
+        - containerPort: 4000
+        env:
+        - name: REDIS_HOST
+          value: localhost
+        - name: REDIS_PORT
+          value: "6379"
+---
+# <https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service>
+apiVersion: v1
+kind: Service
+metadata:
+  name: cs401-sh623-hw3-service
+spec:
+  selector:
+    app: cs401-sh623-hw3
+  ports:
+    - port: 53004
+      targetPort: 4000

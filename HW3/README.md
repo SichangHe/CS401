@@ -79,6 +79,11 @@ DOCKER_DEFAULT_PLATFORM="linux/amd64" docker compose build
 
 The image built is on DockerHub, named `sssstevenhe/cs401-hw3-dashboard`.
 
+The Kubernetes deployment and service specifications are in `dashboard.yml`, applied with:
+```sh
+kubectl -n sh623 apply -f dashboard.yml
+```
+
 ## Task 3: Serverless Runtime
 
 build a container image to replace the runtime image provided by the instructors.
