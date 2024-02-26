@@ -13,13 +13,10 @@ from runtime import Context, import_file, logger
 REDIS_HOST: Final = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT: Final = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_INPUT_KEY: Final = os.getenv("REDIS_INPUT_KEY", "metrics")
-REDIS_OUTPUT_KEY: Final[str] = os.getenv("REDIS_OUTPUT_KEY")  # type: ignore
-assert (
-    REDIS_OUTPUT_KEY is not None
-), "Environment variable `REDIS_OUTPUT_KEY` must be provided."
+REDIS_OUTPUT_KEY: Final = os.getenv("REDIS_OUTPUT_KEY", "sh623-proj3-output")
 
-FUNCTION_MODULE_NAME: Final = "usermodule"
-FUNCTION_PATH: Final = "/opt/usermodule.py"
+FUNCTION_MODULE_NAME: Final = "function"
+FUNCTION_PATH: Final = os.getenv("FUNCTION_PATH", "/opt/usermodule.py")
 SLEEP_SECONDS: Final = 5.0
 MAX_N_ERROR_ALLOWED: Final = 3
 
@@ -56,9 +53,13 @@ def main() -> int:
     metrics: dict | None = None
     while n_error_allowed:
         try:
+            logger.info("`run`: context=%s, metrics=%s", context, metrics)
             maybe_metrics = run(context, redis, function, metrics)
             if maybe_metrics is not None:
                 metrics = maybe_metrics
+                logger.info(
+                    "Post-run: context.env=%s, metrics=%s", context.env, metrics
+                )
                 context = replace(context, last_execution=datetime.now())
             n_error_allowed = MAX_N_ERROR_ALLOWED
         except KeyboardInterrupt:
