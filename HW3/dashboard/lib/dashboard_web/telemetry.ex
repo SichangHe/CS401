@@ -23,7 +23,8 @@ defmodule DashboardWeb.Telemetry do
     [
       # Monitoring
       # <https://medium.com/@marcdel/adding-custom-metrics-to-a-phoenix-1-5-live-dashboard-1b21a8df5cf1>
-      summary("monitoring.redis.poll", unit: {:byte, :byte}),
+      summary("monitoring.percentage_memory_caching"),
+      summary("monitoring.percentage_outgoing_bytes"),
 
       # Phoenix Metrics
       summary("phoenix.endpoint.stop.duration",
@@ -50,4 +51,3 @@ defmodule DashboardWeb.Telemetry do
     ]
   end
 end
-
