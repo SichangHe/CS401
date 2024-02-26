@@ -18,7 +18,7 @@ the key `percentage_memory_caching`.
 My function also compute a moving average utilization of each CPU over the last
 minute under the key `moving_average_cpu_percent-X` (for CPU `X`)
 by taking the arithmetic mean of all the CPU utilization percentages within the
-last minute.
+last minute as of the last CPU metrics.
 This is achieved by storing each CPU's utilization percentages and the
 timestamps they are recorded in a list under the key `cpu_percent-X` in
 `context.env`.
