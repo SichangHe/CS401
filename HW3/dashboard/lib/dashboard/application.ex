@@ -20,7 +20,8 @@ defmodule Dashboard.Application do
          case System.get_env("REDIS_PORT") do
            nil -> 6379
            port -> String.to_integer(port)
-         end}
+         end,
+       output_key: System.get_env("REDIS_OUTPUT_KEY", "sh623-proj3-output")}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

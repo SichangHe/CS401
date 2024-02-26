@@ -10,7 +10,8 @@ The data is stored in Redis under the `metrics` key.
 
 ### Data Output (Computed Metric and Function Results)
 
-My serverless function computes two stateless metrics at each point in time:
+My serverless function `function.py` computes two stateless metrics at each
+point in time:
 the percentage of outgoing traffic bytes under the key
 `percentage_outgoing_bytes` and the percentage of memory caching content under
 the key `percentage_memory_caching`.
@@ -48,9 +49,9 @@ kubectl -n sh623 apply -f outputkey-cm.yml -f pyfile-cm.yml -f serverless-deploy
 
 To display the monitoring information computed by my serverless function,
 I leverage the metrics section of Phoenix web framework's built-in live
-dashboard. Specifically,
+dashboard to build `dashboard`. Specifically,
 I poll the Redis server for the metrics every 2.5 seconds,
-and [register it as telemetry
+and [register the metrics as telemetry
 events](https://hexdocs.pm/phoenix/telemetry.html#telemetry-events);
 in the dashboard's metrics configuration,
 I [listen to these
@@ -58,10 +59,15 @@ events](https://medium.com/@marcdel/adding-custom-metrics-to-a-phoenix-1-5-live-
 The live dashboard then automatically displays the metrics in real-time as a
 line chart.
 
-- [ ] Implement code to show the metrics computed by your serverless function
-- [ ] Read data from Redis into your dashboard using `sh623-proj3-output`.
+The Redis server to poll can be specified in the environment variables
+`REDIS_HOST` and `REDIS_PORT`,
+and the output key can be specified in the environment variable
+`REDIS_OUTPUT_KEY`.
+
 - [ ] Package your dashboard in a Docker image, create a Kubernetes Deployment specification, and a Service specification.
     - [ ] Expose dashboard on port 53004.
+
+I generated the `Dockerfile` using `mix phx.gen.release --docker`.
 
 ## Task 3: Serverless Runtime
 

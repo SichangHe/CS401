@@ -5,19 +5,23 @@ defmodule Dashboard.Redis do
   def start_link(args \\ []) do
     host = Keyword.get(args, :host)
     port = Keyword.get(args, :port)
+    output_key = Keyword.get(args, :output_key)
     {:ok, redis} = Redix.start_link(host: host, port: port)
-    GenServer.start_link(__MODULE__, redis, [{:name, __MODULE__} | args])
+
+    poll_fn = fn -> Redix.command(redis, ["GET", output_key]) end
+
+    GenServer.start_link(__MODULE__, poll_fn, [{:name, __MODULE__} | args])
   end
 
   @impl true
-  def init(redis) do
+  def init(poll_fn) do
     send(self(), :poll)
-    {:ok, redis}
+    {:ok, poll_fn}
   end
 
   @impl true
-  def handle_info(:poll, redis) do
-    {:ok, metrics_bytes} = Redix.command(redis, ["GET", "sh623-proj3-output"])
+  def handle_info(:poll, poll_fn) do
+    {:ok, metrics_bytes} = poll_fn.()
     Logger.info("Polling Redis returned #{metrics_bytes}.")
     metrics = Jason.decode!(metrics_bytes)
     # <https://hexdocs.pm/phoenix/telemetry.html#telemetry-events>
@@ -47,6 +51,6 @@ defmodule Dashboard.Redis do
     end)
 
     Process.send_after(self(), :poll, 2_500)
-    {:noreply, redis}
+    {:noreply, poll_fn}
   end
 end
