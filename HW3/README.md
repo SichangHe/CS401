@@ -109,6 +109,20 @@ to "localhost" but you may be trying to access it from
                        "//another.com:888", "//other.com"]
 ```
 
+To try out the dashboard, find its IP:
+
+```sh
+kubectl get services cs401-sh623-hw3-service
+```
+
+Then, establish a port-forwarding to the dashboard. The command for me was:
+
+```sh
+ssh -L 53004:10.105.138.187:53004 cs401
+```
+
+Finally, visit `http://localhost:53004` in your browser to see the dashboard.
+
 ## Task 3: Serverless Runtime
 
 build a container image to replace the runtime image provided by the instructors.
