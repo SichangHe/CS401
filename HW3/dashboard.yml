@@ -25,6 +25,9 @@ spec:
           value: localhost
         - name: REDIS_PORT
           value: "6379"
+        # Needed, otherwise Phoenix would not start.
+        - name: SECRET_KEY_BASE
+          value: Q6UWXs7J9rW2JXf/Hg2EUryWLKqjK/pK2nclu/k6rSGcZ6cWyGwYjJ1YgBoT/pbK
 ---
 # <https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service>
 apiVersion: v1
