@@ -64,9 +64,6 @@ The Redis server to poll can be specified in the environment variables
 and the output key can be specified in the environment variable
 `REDIS_OUTPUT_KEY`.
 
-- [ ] Package your dashboard in a Docker image, create a Kubernetes Deployment specification, and a Service specification.
-    - [ ] Expose dashboard on port 53004.
-
 I generated the `Dockerfile` using `mix phx.gen.release --docker`,
 added a Docker compose file,
 [patched the
@@ -86,42 +83,22 @@ applied with:
 kubectl -n sh623 apply -f dashboard.yml
 ```
 
-```erl
-12:04:36.891 [error] Could not check origin for Phoenix.Socket transport.
-
-Origin of the request: http://localhost:53004
-
-This happens when you are attempting a socket connection to
-a different host than the one configured in your config/
-files. For example, in development the host is configured
-to "localhost" but you may be trying to access it from
-"127.0.0.1". To fix this issue, you may either:
-
-  1. update [url: [host: ...]] to your actual host in the
-     config file for your current environment (recommended)
-
-  2. pass the :check_origin option when configuring your
-     endpoint or when configuring the transport in your
-     UserSocket module, explicitly outlining which origins
-     are allowed:
-
-        check_origin: ["https://example.com",
-                       "//another.com:888", "//other.com"]
-```
-
-To try out the dashboard, find its IP:
+To try out the dashboard, find its IP `<Service IP>`:
 
 ```sh
 kubectl get services cs401-sh623-hw3-service
 ```
 
-Then, establish a port-forwarding to the dashboard. The command for me was:
+Then, establish a port-forwarding to the dashboard:
 
 ```sh
-ssh -L 53004:10.105.138.187:53004 cs401
+ssh -L 53004:<Service IP>:53004 <VM name>
 ```
 
 Finally, visit `http://localhost:53004` in your browser to see the dashboard.
+A sample is shown below:
+
+![Screenshot of The Deployed Dashboard Visited Locally](dashboard_screenshot.png)
 
 ## Task 3: Serverless Runtime
 
