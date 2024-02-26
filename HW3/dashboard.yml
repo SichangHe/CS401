@@ -22,7 +22,7 @@ spec:
         - containerPort: 4000
         env:
         - name: REDIS_HOST
-          value: localhost
+          value: "152.3.65.35"
         - name: REDIS_PORT
           value: "6379"
         # Needed, otherwise Phoenix would not start.
