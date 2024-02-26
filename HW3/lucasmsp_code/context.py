@@ -1,6 +1,8 @@
 import datetime
 import os
 
+import function
+
 
 class Context(object):
     """
@@ -19,7 +21,7 @@ class Context(object):
         self.port = port
         self.input_key = input_key
         self.output_key = output_key
-        tmp = os.path.getmtime("/opt/usermodule.py")
+        tmp = os.path.getmtime(function.__file__)
         self.function_getmtime = datetime.datetime.fromtimestamp(tmp).strftime(
             "%Y-%m-%d %H:%M:%S"
         )

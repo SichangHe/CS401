@@ -1,33 +1,26 @@
 # -*- coding: utf-8 -*-
 
-import datetime
-import importlib
 import json
 import os
 import time
 import traceback
+from logging import getLogger
 
-import pandas as pd
+import function as lf
 import redis
-from icecream import ic
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_INPUT_KEY = os.getenv("REDIS_INPUT_KEY", None)
-REDIS_OUTPUT_KEY = os.getenv("REDIS_OUTPUT_KEY", None)
+REDIS_INPUT_KEY = os.getenv("REDIS_INPUT_KEY", "metrics")
+REDIS_OUTPUT_KEY = os.getenv("REDIS_OUTPUT_KEY", "sh623-proj3-output")
 
 INTERVAL_TIME = int(os.getenv("INTERVAL", 5))
 
-
-def time_format():
-    return f"{datetime.datetime.now()}|> "
+logger = getLogger(__name__)
 
 
-ic.configureOutput(prefix=time_format)
-
-
-def log(msg):
-    ic(msg)
+def log(*args):
+    logger.warning(*args)
 
 
 if not REDIS_INPUT_KEY:
@@ -43,17 +36,9 @@ r_server = redis.Redis(
     host=REDIS_HOST, port=REDIS_PORT, charset="utf-8", decode_responses=True
 )
 
-module_loader = importlib.util.find_spec("usermodule")
-
-if not module_loader:
-    log("`usermodule` not found!")
-    exit(1)
-
-import usermodule as lf
-
 log("Environment is loaded. Starting Serverless function execution...")
 
-from context import Context
+from .context import Context
 
 context = Context(
     host=REDIS_HOST,
@@ -77,8 +62,10 @@ while True:
 
         try:
             # data = json.loads(data[1]['msg'])
-            data = json.loads(data)
+            data = json.loads(data)  # type: ignore
+            log("\ndata=%s,\ncontext.env=%s", data, context.env)
             output = lf.handler(data, context)
+            log("context.env=%s,\noutput=%s", context.env, output)
 
         except:
             log(
