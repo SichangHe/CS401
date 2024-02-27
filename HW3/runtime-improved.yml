@@ -28,15 +28,11 @@ spec:
           value: "10.244.0.1"
         - name: REDIS_PORT
           value: "6379"
-        # Default value for ConfigMap: <https://discuss.kubernetes.io/t/specify-default-values-for-env-variables-that-get-populated-from-configmap-secret-etc/9619>
-        - name: REDIS_INPUT_KEY
-          value: "metrics"
         - name: REDIS_INPUT_KEY
           valueFrom:
             configMapKeyRef:
               name: inputkey
               key: REDIS_INPUT_KEY
-              optional: true
         - name: REDIS_OUTPUT_KEY
           valueFrom:
             configMapKeyRef:
