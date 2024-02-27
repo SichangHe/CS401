@@ -29,7 +29,11 @@ spec:
         - name: REDIS_PORT
           value: "6379"
         - name: REDIS_INPUT_KEY
-          value: "metrics"
+          valueFrom:
+            configMapKeyRef:
+              name: inputkey
+              key: REDIS_INPUT_KEY
+          defaultValue: "metrics"
         - name: REDIS_OUTPUT_KEY
           valueFrom:
             configMapKeyRef:
