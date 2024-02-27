@@ -8,7 +8,7 @@ from typing import Callable, Final
 
 from redis import Redis
 
-from runtime import Context, import_file, logger
+from runtime import Context, import_file, import_zipped_module, logger
 
 REDIS_HOST: Final = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT: Final = int(os.getenv("REDIS_PORT", "6379"))
@@ -17,6 +17,10 @@ REDIS_OUTPUT_KEY: Final = os.getenv("REDIS_OUTPUT_KEY", "sh623-proj3-output")
 
 FUNCTION_MODULE_NAME: Final = "function"
 FUNCTION_PATH: Final = os.getenv("FUNCTION_PATH", "/opt/usermodule.py")
+
+FUNCTION_ZIP_PATH: Final = os.getenv("FUNCTION_ZIP_PATH", "/opt/function_module.zip")
+ZIPPED_MODULE_NAME: Final = os.getenv("ZIPPED_MODULE_NAME")
+
 POLL_INTERVAL_SECONDS: Final = float(os.getenv("POLL_INTERVAL_SECONDS", "5.0"))
 MAX_N_ERROR_ALLOWED: Final = 3
 
@@ -35,14 +39,32 @@ def run(
         return new_metrics
 
 
-def main() -> int:
-    if (function_module := import_file(FUNCTION_PATH, FUNCTION_MODULE_NAME)) is None:
-        logger.error(
-            "Please provide the function module file. Not found at %s.", FUNCTION_PATH
+def get_function_and_mtime() -> tuple[Callable, datetime] | None:
+    if ZIPPED_MODULE_NAME:
+        logger.info("Importing zipped module named `%s`.", ZIPPED_MODULE_NAME)
+        function_module = import_zipped_module(FUNCTION_ZIP_PATH, ZIPPED_MODULE_NAME)
+        function_path = FUNCTION_ZIP_PATH
+    else:
+        logger.warning(
+            "No zipped module name provided. Importing from file `%s`.", FUNCTION_PATH
         )
+        function_module = import_file(FUNCTION_PATH, FUNCTION_MODULE_NAME)
+        function_path = FUNCTION_PATH
+    if function_module is None:
+        logger.error(
+            "Please provide the function module file. Not found at %s.",
+            FUNCTION_PATH,
+        )
+        return None
+    function_mtime = datetime.fromtimestamp(os.path.getmtime(function_path))
+    return function_module.handler, function_mtime
+
+
+def main() -> int:
+    if (function_and_mtime := get_function_and_mtime()) is None:
+        logger.error("No function module file found.")
         return 1
-    function = function_module.handler
-    function_mtime = datetime.fromtimestamp(os.path.getmtime(FUNCTION_PATH))
+    function, function_mtime = function_and_mtime
 
     context = Context(
         REDIS_HOST, REDIS_PORT, REDIS_INPUT_KEY, REDIS_OUTPUT_KEY, function_mtime
