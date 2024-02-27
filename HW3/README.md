@@ -131,3 +131,11 @@ The configMapKeyRefs are set as optional,
 so if the users do not specify them,
 the default values in the container will be used.
 The example ConfigMap is provided in `runtime-improved-cm.yml`.
+
+To include a ZIP file in a ConfigMap, the user can use the following command,
+derived from [the documentation on configuring pods to use
+ConfigMaps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-files):
+
+```sh
+kubectl create configmap <ConfigMap name> --from-file <ZIP file path> --dry-run=client -o yaml
+```
