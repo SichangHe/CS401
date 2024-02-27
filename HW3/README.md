@@ -102,14 +102,16 @@ A sample is shown below:
 
 ## Task 3: Serverless Runtime
 
-build a container image to replace the runtime image provided by the instructors.
-
-In the runtime provided for this assignment, data is periodically read from Redis and passed in as parameters to the function. When the function returns, results are stored on Redis, where they can be later be read by the dashboard.
-
+The serverless runtime at `runtime` is a drop-in replacement for the original
+runtime, with dependencies managed using [Poetry](https://python-poetry.org/).
 The Docker build file is bootstrapped using `docker init` like before,
 and is largely based on [a comment in a Poetry
 issue](https://github.com/orgs/python-poetry/discussions/1879#discussioncomment-7284113).
-The image build is on DockerHub, named `sssstevenhe/cs401-hw3-runtime`.
+The image is on DockerHub, named `sssstevenhe/cs401-hw3-runtime`.
+
+Using the deployment file at `runtime-improved.yml`,
+I replaced the original deployment with my runtime,
+and the serverless function works exactly as before.
 
 ### Required Extensions
 
