@@ -126,6 +126,8 @@ through a ConfigMap named `runtime-improved`:
 - [ ] Complex Function Support: Your runtime should allow the user to pass in the location of a Zip file containing the function's code. This will allow users to conveniently run functions that are implemented using multiple Python modules (that is, multiple Python files). This functionality should be provided in addition to the `pyfile` ConfigMap described above.
 - [ ] Function Handler: Your runtime should allow the user to specify what function should be called as the "entry point". The entry point function should still receive `input` and `context` as parameters as in the original runtime.
 
-Unfortunately, I did not find a way to set the default values for ConfigMaps,
-therefore the users have to specify it.
+Unfortunately, I did not find a way to set the default values for ConfigMaps.
+The configMapKeyRefs are set as optional,
+so if the users do not specify them,
+the default values in the container will be used.
 The example ConfigMap is provided in `runtime-improved-cm.yml`.
