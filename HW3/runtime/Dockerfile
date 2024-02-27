@@ -27,15 +27,20 @@ RUN --mount=type=cache,target=/var/cache/apt/ \
     apt-get update && \
     apt-get install -y --no-install-recommends curl
 
+# Get Poetry.
+RUN curl -sSL https://install.python-poetry.org | python -
+
 WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 
-# Get Poetry and install dependencies.
-RUN curl -sSL https://install.python-poetry.org | python - && \
-    poetry install --no-root --only main
+# Install dependencies.
+RUN poetry install --no-root
 
 # Copy the source code into the container.
 COPY . .
+
+# Install the current package.
+RUN poetry install
 
 # Run the application.
 CMD poetry run python -m runtime.main
