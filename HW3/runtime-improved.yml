@@ -31,13 +31,18 @@ spec:
         - name: REDIS_INPUT_KEY
           valueFrom:
             configMapKeyRef:
-              name: inputkey
+              name: runtime-improved
               key: REDIS_INPUT_KEY
         - name: REDIS_OUTPUT_KEY
           valueFrom:
             configMapKeyRef:
               name: outputkey
               key: REDIS_OUTPUT_KEY
+        - name: POLL_INTERVAL_SECONDS
+          valueFrom:
+            configMapKeyRef:
+              name: runtime-improved
+              key: POLL_INTERVAL_SECONDS
       volumes:
       - name: pyfile
         configMap:

@@ -17,7 +17,7 @@ REDIS_OUTPUT_KEY: Final = os.getenv("REDIS_OUTPUT_KEY", "sh623-proj3-output")
 
 FUNCTION_MODULE_NAME: Final = "function"
 FUNCTION_PATH: Final = os.getenv("FUNCTION_PATH", "/opt/usermodule.py")
-SLEEP_SECONDS: Final = 5.0
+POLL_INTERVAL_SECONDS: Final = float(os.getenv("POLL_INTERVAL_SECONDS", "5.0"))
 MAX_N_ERROR_ALLOWED: Final = 3
 
 
@@ -72,7 +72,7 @@ def main() -> int:
                 traceback.format_exc(),
             )
 
-        sleep(SLEEP_SECONDS)  # TODO: This is slightly off.
+        sleep(POLL_INTERVAL_SECONDS)  # TODO: This is slightly off.
 
     logger.error("Too many errors. Exiting.")
     return 1

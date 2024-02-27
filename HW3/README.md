@@ -115,12 +115,18 @@ and the serverless function works exactly as before.
 
 ### Required Extensions
 
-My runtime allows users to specify the following parameters through ConfigMaps:
+My runtime and deployment file allow users to specify the following parameters through a ConfigMap
+named `runtime-improved`:
 
 - Redis Input Key: My runtime allows the user to configure a different Redis key
-    to be monitored by setting the `REDIS_INPUT_KEY`.
-    Using deployment file `runtime-improved.yml`,
-    users can also configure it with a ConfigMap with key `inputkey`.
-- [ ] Redis Monitoring Period: Your runtime should allow the user to configure the period, in seconds, of how frequently the Redis key above should be monitored. (The default runtime sets this to 5 seconds.)
+    to be monitored by setting the `REDIS_INPUT_KEY` key.
+- Redis Monitoring Period:
+    My runtime allows the user to configure the period of how frequently the
+    Redis key above is monitored by setting the `POLL_INTERVAL_SECONDS` key.
 - [ ] Complex Function Support: Your runtime should allow the user to pass in the location of a Zip file containing the function's code. This will allow users to conveniently run functions that are implemented using multiple Python modules (that is, multiple Python files). This functionality should be provided in addition to the `pyfile` ConfigMap described above.
 - [ ] Function Handler: Your runtime should allow the user to specify what function should be called as the "entry point". The entry point function should still receive `input` and `context` as parameters as in the original runtime.
+
+Unfortunately, I did not find a way to set the default values for ConfigMaps.
+If the users do not specify them,
+the default values in the container will be used.
+Example configurations are provided in `runtime-improved-cm.yml`.
