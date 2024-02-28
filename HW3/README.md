@@ -147,3 +147,5 @@ ConfigMaps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-p
 ```sh
 kubectl create configmap runtime-improved --from-file=zipped-module=<ZIP file path> --dry-run=client -o yaml
 ```
+
+[ConfigMaps as subPath volumes are updated automatically](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-automatically)

@@ -23,8 +23,8 @@ spec:
         - name: pyfile
           mountPath: "/opt/usermodule.py"
           subPath: pyfile
-        - name: zipped-module
-          mountPath: "/opt/function_module.zip"
+        - name: module-zip
+          mountPath: "/opt/function_module/"
         env:
         - name: REDIS_HOST
           value: "10.244.0.1"
@@ -48,6 +48,8 @@ spec:
               name: runtime-improved
               key: POLL_INTERVAL_SECONDS
               optional: true
+        - name: FUNCTION_ZIP_PATH
+          value: "/opt/function_module/function_module.zip"
         - name: ZIPPED_MODULE_NAME
           valueFrom:
             configMapKeyRef:
@@ -59,7 +61,11 @@ spec:
         configMap:
           name: pyfile
           optional: true
-      - name: zipped-module
+      - name: module-zip
         configMap:
-          name: zipped-module
+          name: runtime-improved
+          # <https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#add-configmap-data-to-a-specific-path-in-the-volume>
+          items:
+            - key: zipped-module
+              path: function_module.zip
           # optional: true
