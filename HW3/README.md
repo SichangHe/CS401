@@ -135,11 +135,14 @@ so if the users do not specify them,
 the default values in the container will be used.
 The example ConfigMap is provided in `runtime-improved-cm.yml`.
 
-The runtime allows the user to pass in the location of a Zip file containing the
+### ZIP File Support
+
+The runtime allows the user to pass in the location of a ZIP file containing the
 function's code in the environment variable `FUNCTION_ZIP_PATH`,
 and the function name in `ZIPPED_MODULE_NAME`.
 If `ZIPPED_MODULE_NAME` is not provided,
 the runtime switches to loading the function from a file instead.
+
 To include a ZIP file in a ConfigMap, the user can use the following command,
 derived from [the documentation on configuring pods to use
 ConfigMaps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-files):
@@ -148,4 +151,10 @@ ConfigMaps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-p
 kubectl create configmap runtime-improved --from-file=zipped-module=<ZIP file path> --dry-run=client -o yaml
 ```
 
-[ConfigMaps as subPath volumes are updated automatically](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-automatically)
+The ZIP file in the ConfigMap is mounted at
+`/opt/function_module/function_module.zip`,
+where `/opt/function_module/` is the mount path of the ConfigMap,
+and `function_module.zip` is the path associated with key `zipped-module`.
+Note that I am not mounting the ZIP file using `subPath` like Lucas did,
+because [ConfigMaps as `subPath` volumes are not updated
+automatically](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-automatically).
