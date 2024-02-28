@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: cs401-sh623-hw3-runtime
-        image: sssstevenhe/cs401-hw3-runtime:0.2.0
+        image: sssstevenhe/cs401-hw3-runtime:0.3.0
         resources:
           requests:
             cpu: 100m
