@@ -158,3 +158,10 @@ and `function_module.zip` is the path associated with key `zipped-module`.
 Note that I am not mounting the ZIP file using `subPath` like Lucas did,
 because [ConfigMaps as `subPath` volumes are not updated
 automatically](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-automatically).
+
+In the example `runtime-improved-cm.yml`, the ZIP file used is created with:
+
+```sh
+zip -r multi_file_mod.zip multi_file_mod/
+kubectl create configmap runtime-improved --from-file=zipped-module=multi_file_mod.zip --dry-run=client -o yaml
+```
