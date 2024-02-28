@@ -127,7 +127,9 @@ through a ConfigMap named `runtime-improved`:
     My runtime allows the user to supply a ZIP file containing the
     function's code by setting the `zipped-module` key,
     and specifying the function name in `ZIPPED_MODULE_NAME`.
-- [ ] Function Handler: Your runtime should allow the user to specify what function should be called as the "entry point". The entry point function should still receive `input` and `context` as parameters as in the original runtime.
+- Function Handler:
+    My runtime allows the user to specify what function should be called as the
+    "entry point" by setting the `HANDLER_FUNCTION_NAME` key.
 
 Unfortunately, I did not find a way to set the default values for ConfigMaps.
 The configMapKeyRefs are set as optional,

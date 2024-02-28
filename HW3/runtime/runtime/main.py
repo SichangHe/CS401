@@ -21,6 +21,8 @@ FUNCTION_PATH: Final = os.getenv("FUNCTION_PATH", "/opt/usermodule.py")
 FUNCTION_ZIP_PATH: Final = os.getenv("FUNCTION_ZIP_PATH", "/opt/function_module.zip")
 ZIPPED_MODULE_NAME: Final = os.getenv("ZIPPED_MODULE_NAME")
 
+HANDLER_FUNCTION_NAME: Final = os.getenv("HANDLER_FUNCTION_NAME", "handler")
+
 POLL_INTERVAL_SECONDS: Final = float(os.getenv("POLL_INTERVAL_SECONDS", "5.0"))
 MAX_N_ERROR_ALLOWED: Final = 3
 
@@ -57,7 +59,7 @@ def get_function_and_mtime() -> tuple[Callable, datetime] | None:
         )
         return None
     function_mtime = datetime.fromtimestamp(os.path.getmtime(function_path))
-    return function_module.handler, function_mtime
+    return getattr(function_module, HANDLER_FUNCTION_NAME), function_mtime
 
 
 def main() -> int:

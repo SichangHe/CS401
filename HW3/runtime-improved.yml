@@ -56,6 +56,12 @@ spec:
               name: runtime-improved
               key: ZIPPED_MODULE_NAME
               optional: true
+        - name: HANDLER_FUNCTION_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: runtime-improved
+              key: HANDLER_FUNCTION_NAME
+              optional: true
       volumes:
       - name: pyfile
         configMap:
