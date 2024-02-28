@@ -6,6 +6,8 @@ spec:
   containers:
   - name: runtime-dbg
     image: python:3.12.2-slim
+    tty: true
+    stdin: true
     volumeMounts:
     - name: pyfile
       mountPath: "/opt/usermodule.py"
