@@ -2,7 +2,10 @@
 
 ## Introduction
 
-- [ ] TODO
+In this project, I implement a serverless function that computes metrics from
+system data, and a monitoring dashboard to display the metrics in real-time.
+I also create a serverless runtime compatible with the provided runtime,
+but with additional features.
 
 ## Task 1: Serverless Function and Runtime
 
@@ -23,6 +26,8 @@ last minute as of the last CPU metrics.
 This is achieved by storing each CPU's utilization percentages and the
 timestamps they are recorded in a list under the key `cpu_percent-X` in
 `context.env`.
+Statistics more than one minute older than the latest are removed to save
+memory.
 
 These keys (`percentage_outgoing_bytes`, `percentage_memory_caching`,
 and `moving_average_cpu_percent-X`, totaling $N_{\text{CPU}} + 2$ keys)
@@ -31,7 +36,7 @@ are returned from the `handle` function as a JSON-encodable dictionary.
 ### Integration with the Serverless Framework
 
 I use the image `lucasmsp/serverless:redis` and the deployment files as
-provided, without changes. To set specify the serverless function,
+provided, without changes. To specify the serverless function,
 I create a ConfigMap in `pyfile-cm.yml`, with a single key named `pyfile`,
 whose value is my serverless function source code.
 I also create another ConfigMap in `outputkey-cm.yml` that contains a single key
@@ -49,7 +54,7 @@ kubectl -n sh623 apply -f outputkey-cm.yml -f pyfile-cm.yml -f serverless-deploy
 
 To display the monitoring information computed by my serverless function,
 I leverage the metrics section of Phoenix web framework's built-in live
-dashboard to build `dashboard`. Specifically,
+dashboard to build `dashboard/`. Specifically,
 I poll the Redis server for the metrics every 2.5 seconds,
 and [register the metrics as telemetry
 events](https://hexdocs.pm/phoenix/telemetry.html#telemetry-events);
@@ -64,11 +69,13 @@ The Redis server to poll can be specified in the environment variables
 and the output key can be specified in the environment variable
 `REDIS_OUTPUT_KEY`.
 
+### Containerizing The Dashboard and Deployment
+
 I generated the `Dockerfile` using `mix phx.gen.release --docker`,
 added a Docker compose file,
 [patched the
 `Dockerfile`](https://elixirforum.com/t/mix-deps-get-memory-explosion-when-doing-cross-platform-docker-build/57157/3)
-so it builds on ARM Macs, and built the image at `dashboard` with:
+so it builds on ARM Macs, and built the image at `dashboard/` with:
 
 ```sh
 DOCKER_DEFAULT_PLATFORM="linux/amd64" docker compose build
@@ -100,11 +107,15 @@ A sample is shown below:
 
 ![Screenshot of The Deployed Dashboard Visited Locally](dashboard_screenshot.png)
 
+The percentage of memory caching and outgoing traffic bytes are stable,
+while the moving average CPU utilization fluctuates, as expected.
+
 ## Task 3: Serverless Runtime
 
-The serverless runtime at `runtime` is a drop-in replacement for the original
+The serverless runtime at `runtime/` is a drop-in replacement for the original
 runtime, with dependencies managed using [Poetry](https://python-poetry.org/).
-The Docker build file is bootstrapped using `docker init` like before,
+The Docker build file is bootstrapped using `docker init` and built using
+`docker compose build` like before,
 and is largely based on [a comment in a Poetry
 issue](https://github.com/orgs/python-poetry/discussions/1879#discussioncomment-7284113).
 The image is on DockerHub, named `sssstevenhe/cs401-hw3-runtime`.
@@ -135,15 +146,17 @@ Unfortunately, I did not find a way to set the default values for ConfigMaps.
 The configMapKeyRefs are set as optional,
 so if the users do not specify them,
 the default values in the container will be used.
-The example ConfigMap is provided in `runtime-improved-cm.yml`.
+The example ConfigMap is provided in `runtime-improved-cm.yml`,
+and includes all available customizations.
 
-### ZIP File Support
+#### ZIP File Support
 
 The runtime allows the user to pass in the location of a ZIP file containing the
 function's code in the environment variable `FUNCTION_ZIP_PATH`,
-and the function name in `ZIPPED_MODULE_NAME`.
+and the module name in `ZIPPED_MODULE_NAME` (which can include `.`s).
 If `ZIPPED_MODULE_NAME` is not provided,
-the runtime switches to loading the function from a file instead.
+the runtime switches to loading the function from a file instead,
+so it is compatible with Lucas' runtime.
 
 To include a ZIP file in a ConfigMap, the user can use the following command,
 derived from [the documentation on configuring pods to use
